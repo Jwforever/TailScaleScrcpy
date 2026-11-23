@@ -1,0 +1,16 @@
+# 运行产物
+dist/
+scrcpy/
+*.exe
+*.zip
+_payload.zip
+
+# 本机配置（含私有 IP，勿提交）
+scrcpy-ts.json
+_run_scrcpy.cmd
+*.log
+
+# 系统杂项
+Thumbs.db
+desktop.ini
+.DS_Store
