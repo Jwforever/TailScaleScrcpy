@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/build-ipa.yml'
+      - 'ios/**'
   workflow_dispatch:
 
 permissions:
@@ -16,17 +17,38 @@ concurrency:
 
 jobs:
   build-ipa:
-    name: Build unsigned IPA
+    name: Build unsigned IPA (Tesla UI)
     runs-on: macos-15
     timeout-minutes: 45
 
     steps:
+      # 1) 先取本仓库，拿到 ios/overlay 下的定制文件
+      - name: Checkout this repo (for overlay)
+        uses: actions/checkout@v4
+        with:
+          path: here
+
+      # 2) 再取上游客户端源码
       - name: Checkout iOS client (upstream)
         uses: actions/checkout@v4
         with:
           repository: TheCodeboy12/scrcpy-ios-client
           ref: main
           path: src
+
+      # 3) 用定制 UI 覆盖上游文件
+      - name: Apply UI overlay
+        run: |
+          set -e
+          echo "=== overlay 内容 ==="
+          find here/ios/overlay -type f
+          cp -f here/ios/overlay/Sources/ScrcpyApp/ScrcpyApp.swift \
+                src/Sources/ScrcpyApp/ScrcpyApp.swift
+          cp -f here/ios/overlay/Sources/ScrcpyApp/Views/TeslaConnectView.swift \
+                src/Sources/ScrcpyApp/Views/TeslaConnectView.swift
+          echo "=== 覆盖后校验 ==="
+          grep -c "TeslaConnectView" src/Sources/ScrcpyApp/ScrcpyApp.swift
+          wc -l src/Sources/ScrcpyApp/Views/TeslaConnectView.swift
 
       - name: Toolchain info
         run: |
@@ -61,15 +83,14 @@ jobs:
         run: |
           mkdir -p build/Payload
           cp -r build/Scrcpy.xcarchive/Products/Applications/ScrcpyApp.app build/Payload/
-          cd build && zip -qry Scrcpy-unsigned.ipa Payload
-          ls -lh Scrcpy-unsigned.ipa
-          du -h Scrcpy-unsigned.ipa
+          cd build && zip -qry Scrcpy-tesla.ipa Payload
+          ls -lh Scrcpy-tesla.ipa
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Scrcpy-unsigned-ipa
-          path: src/build/Scrcpy-unsigned.ipa
+          name: Scrcpy-tesla-ipa
+          path: src/build/Scrcpy-tesla.ipa
           retention-days: 30
 
       - name: Publish to Releases
@@ -77,12 +98,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          TAG="ios-latest"
-          NOTES="未签名 IPA，需用 Sideloadly / AltStore 配自己的 Apple ID 自签后安装，免费证书 7 天到期。连接：Host 填设备 Tailscale IP，Port 填 5555，设备侧需先 adb tcpip 5555 并授权调试。"
+          TAG="ios-tesla"
+          NOTES="Tesla 风格定制 UI 版（未签名）。需用 Sideloadly / AltStore 配自己的 Apple ID 自签，免费证书 7 天到期。使用：Host 填设备 Tailscale IP，Port 填 5555，平板侧先开启无线调试并 adb tcpip 5555。"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG exists, upload with clobber"
-            gh release upload "$TAG" src/build/Scrcpy-unsigned.ipa --clobber
+            echo "Release $TAG exists, uploading with clobber"
+            gh release upload "$TAG" src/build/Scrcpy-tesla.ipa --clobber
           else
             echo "Creating release $TAG"
-            gh release create "$TAG" src/build/Scrcpy-unsigned.ipa --title "iOS 未签名包 (latest)" --notes "$NOTES" --prerelease
+            gh release create "$TAG" src/build/Scrcpy-tesla.ipa \
+              --title "iOS 定制 UI 版 (Tesla 风格)" \
+              --notes "$NOTES" \
+              --prerelease
           fi
