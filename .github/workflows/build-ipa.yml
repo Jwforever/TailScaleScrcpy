@@ -1,0 +1,92 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-ipa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-ipa
+  cancel-in-progress: true
+
+jobs:
+  build-ipa:
+    name: Build unsigned IPA
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout iOS client (upstream)
+        uses: actions/checkout@v4
+        with:
+          repository: TheCodeboy12/scrcpy-ios-client
+          ref: main
+          path: src
+
+      - name: Toolchain info
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: src
+        run: xcodegen generate
+
+      - name: Run ScrcpyKit tests
+        working-directory: src
+        run: swift run ScrcpyTests
+
+      - name: Build (unsigned)
+        working-directory: src
+        run: |
+          xcodebuild -project ScrcpyiOS.xcodeproj \
+            -scheme ScrcpyApp \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath build/Scrcpy.xcarchive \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Package IPA
+        working-directory: src
+        run: |
+          mkdir -p build/Payload
+          cp -r build/Scrcpy.xcarchive/Products/Applications/ScrcpyApp.app build/Payload/
+          cd build && zip -qry Scrcpy-unsigned.ipa Payload
+          ls -lh Scrcpy-unsigned.ipa
+          du -h Scrcpy-unsigned.ipa
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Scrcpy-unsigned-ipa
+          path: src/build/Scrcpy-unsigned.ipa
+          retention-days: 30
+
+      - name: Publish to Releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="ios-latest"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG 已存在，覆盖上传"
+            gh release upload "$TAG" src/build/Scrcpy-unsigned.ipa --clobber
+          else
+            gh release create "$TAG" src/build/Scrcpy-unsigned.ipa \
+              --title "iOS 未签名包 (latest)" \
+              --notes "由 GitHub Actions 从上游源码自动构建。
+
+**未签名**，需要用 Sideloadly / AltStore 配自己的 Apple ID 自签后安装，免费证书 7 天到期。
+
+连接方式：Host 填设备的 Tailscale IP（如 100.x.y.z），Port 填 5555。设备侧需先执行 adb tcpip 5555 并授权调试。" \
+              --prerelease
+          fi
