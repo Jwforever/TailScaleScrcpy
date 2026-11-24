@@ -77,16 +77,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="ios-latest"
+          NOTES="未签名 IPA，需用 Sideloadly / AltStore 配自己的 Apple ID 自签后安装，免费证书 7 天到期。连接：Host 填设备 Tailscale IP，Port 填 5555，设备侧需先 adb tcpip 5555 并授权调试。"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG 已存在，覆盖上传"
+            echo "Release $TAG exists, upload with clobber"
             gh release upload "$TAG" src/build/Scrcpy-unsigned.ipa --clobber
           else
-            gh release create "$TAG" src/build/Scrcpy-unsigned.ipa \
-              --title "iOS 未签名包 (latest)" \
-              --notes "由 GitHub Actions 从上游源码自动构建。
-
-**未签名**，需要用 Sideloadly / AltStore 配自己的 Apple ID 自签后安装，免费证书 7 天到期。
-
-连接方式：Host 填设备的 Tailscale IP（如 100.x.y.z），Port 填 5555。设备侧需先执行 adb tcpip 5555 并授权调试。" \
-              --prerelease
+            echo "Creating release $TAG"
+            gh release create "$TAG" src/build/Scrcpy-unsigned.ipa --title "iOS 未签名包 (latest)" --notes "$NOTES" --prerelease
           fi
