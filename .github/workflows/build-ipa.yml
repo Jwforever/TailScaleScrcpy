@@ -75,6 +75,7 @@ jobs:
       - name: Publish to Releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           TAG="ios-latest"
           NOTES="未签名 IPA，需用 Sideloadly / AltStore 配自己的 Apple ID 自签后安装，免费证书 7 天到期。连接：Host 填设备 Tailscale IP，Port 填 5555，设备侧需先 adb tcpip 5555 并授权调试。"
