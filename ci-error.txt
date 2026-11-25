@@ -1,0 +1,124 @@
+run #19 / bf1c7e3b7808a579ab3d887fba49256d27f0bc62
+===== test.log (tail) =====
+unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+379 |                             client.droppingVideo = false
+380 |                         }
+381 |                         client.fgLock.unlock()
+    |                                       `- warning: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+382 |                         if skipStale && !header.isKeyFrame {
+383 |                             continue
+
+Foundation.NSLock.unlock:2:11: note: 'unlock()' declared here
+1 | class NSLock {
+2 | open func unlock()}
+  |           `- note: 'unlock()' declared here
+3 | 
+
+/Users/runner/work/TailScaleScrcpy/TailScaleScrcpy/src/Sources/ScrcpyKit/Session/ScrcpyClient.swift:379:36: error: main actor-isolated property 'droppingVideo' can not be mutated from a nonisolated context
+ 79 |     // 前台恢复用的状态
+ 80 |     private let fgLock = NSLock()
+ 81 |     private var droppingVideo = false
+    |                 `- note: mutation of this property is only permitted within the actor
+ 82 | 
+ 83 |     private var videoTask: Task<Void, Never>?
+    :
+377 |                         let skipStale = client.droppingVideo
+378 |                         if skipStale && header.isKeyFrame {
+379 |                             client.droppingVideo = false
+    |                                    |- error: main actor-isolated property 'droppingVideo' can not be mutated from a nonisolated context
+    |                                    `- note: consider declaring an isolated method on 'MainActor' to perform the mutation
+380 |                         }
+381 |                         client.fgLock.unlock()
+
+/Users/runner/work/TailScaleScrcpy/TailScaleScrcpy/src/Sources/ScrcpyKit/Session/ScrcpyClient.swift:377:41: error: expression is 'async' but is not marked with 'await'
+375 |                         // 会堵住控制消息的 ACK。这里先丢掉非关键帧，把积压快速排空。
+376 |                         client.fgLock.lock()
+377 |                         let skipStale = client.droppingVideo
+    |                                         |- error: expression is 'async' but is not marked with 'await'
+    |                                         `- note: property access is 'async'
+378 |                         if skipStale && header.isKeyFrame {
+379 |                             client.droppingVideo = false
+
+/Users/runner/work/TailScaleScrcpy/TailScaleScrcpy/src/Sources/ScrcpyKit/Video/ScrcpyVideoView.swift:132:31: warning: capture of 'sampleBuffer' with non-sendable type 'CMSampleBuffer' in a '@Sendable' closure
+130 |         session.decoder.onSampleBufferDecoded = { [weak view] sampleBuffer in
+131 |             DispatchQueue.main.async { [weak view] in
+132 |                 view?.enqueue(sampleBuffer)
+    |                               `- warning: capture of 'sampleBuffer' with non-sendable type 'CMSampleBuffer' in a '@Sendable' closure
+133 |             }
+134 |         }
+
+CoreMedia.CMSampleBuffer:2:14: note: class 'CMSampleBuffer' does not conform to the 'Sendable' protocol
+1 | @available(macOS 10.7, *)
+2 | public class CMSampleBuffer : _CFObject {
+  |              `- note: class 'CMSampleBuffer' does not conform to the 'Sendable' protocol
+3 | }
+[26/29] Compiling ScrcpyKit resource_bundle_accessor.swift
+/Users/runner/work/TailScaleScrcpy/TailScaleScrcpy/src/Sources/ScrcpyKit/Session/ScrcpyClient.swift:376:39: warning: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+374 |                         // App 从后台回来时，adb 单连接上积压了大量陈旧视频数据，
+375 |                         // 会堵住控制消息的 ACK。这里先丢掉非关键帧，把积压快速排空。
+376 |                         client.fgLock.lock()
+    |                                       `- warning: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+377 |                         let skipStale = client.droppingVideo
+378 |                         if skipStale && header.isKeyFrame {
+
+Foundation.NSLock.lock:2:11: note: 'lock()' declared here
+1 | class NSLock {
+2 | open func lock()}
+  |           `- note: 'lock()' declared here
+3 | 
+
+/Users/runner/work/TailScaleScrcpy/TailScaleScrcpy/src/Sources/ScrcpyKit/Session/ScrcpyClient.swift:381:39: warning: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+379 |                             client.droppingVideo = false
+380 |                         }
+381 |                         client.fgLock.unlock()
+    |                                       `- warning: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode
+382 |                         if skipStale && !header.isKeyFrame {
+383 |                             continue
+
+Foundation.NSLock.unlock:2:11: note: 'unlock()' declared here
+1 | class NSLock {
+2 | open func unlock()}
+  |           `- note: 'unlock()' declared here
+3 | 
+
+/Users/runner/work/TailScaleScrcpy/TailScaleScrcpy/src/Sources/ScrcpyKit/Session/ScrcpyClient.swift:379:36: error: main actor-isolated property 'droppingVideo' can not be mutated from a nonisolated context
+ 79 |     // 前台恢复用的状态
+ 80 |     private let fgLock = NSLock()
+ 81 |     private var droppingVideo = false
+    |                 `- note: mutation of this property is only permitted within the actor
+ 82 | 
+ 83 |     private var videoTask: Task<Void, Never>?
+    :
+377 |                         let skipStale = client.droppingVideo
+378 |                         if skipStale && header.isKeyFrame {
+379 |                             client.droppingVideo = false
+    |                                    |- error: main actor-isolated property 'droppingVideo' can not be mutated from a nonisolated context
+    |                                    `- note: consider declaring an isolated method on 'MainActor' to perform the mutation
+380 |                         }
+381 |                         client.fgLock.unlock()
+
+/Users/runner/work/TailScaleScrcpy/TailScaleScrcpy/src/Sources/ScrcpyKit/Session/ScrcpyClient.swift:377:41: error: expression is 'async' but is not marked with 'await'
+375 |                         // 会堵住控制消息的 ACK。这里先丢掉非关键帧，把积压快速排空。
+376 |                         client.fgLock.lock()
+377 |                         let skipStale = client.droppingVideo
+    |                                         |- error: expression is 'async' but is not marked with 'await'
+    |                                         `- note: property access is 'async'
+378 |                         if skipStale && header.isKeyFrame {
+379 |                             client.droppingVideo = false
+
+/Users/runner/work/TailScaleScrcpy/TailScaleScrcpy/src/Sources/ScrcpyKit/Video/ScrcpyVideoView.swift:132:31: warning: capture of 'sampleBuffer' with non-sendable type 'CMSampleBuffer' in a '@Sendable' closure
+130 |         session.decoder.onSampleBufferDecoded = { [weak view] sampleBuffer in
+131 |             DispatchQueue.main.async { [weak view] in
+132 |                 view?.enqueue(sampleBuffer)
+    |                               `- warning: capture of 'sampleBuffer' with non-sendable type 'CMSampleBuffer' in a '@Sendable' closure
+133 |             }
+134 |         }
+
+CoreMedia.CMSampleBuffer:2:14: note: class 'CMSampleBuffer' does not conform to the 'Sendable' protocol
+1 | @available(macOS 10.7, *)
+2 | public class CMSampleBuffer : _CFObject {
+  |              `- note: class 'CMSampleBuffer' does not conform to the 'Sendable' protocol
+3 | }
+
+===== xcodebuild.log (tail) =====
+(no xcodebuild output)
