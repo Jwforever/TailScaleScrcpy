@@ -18,15 +18,17 @@ private struct QualityPreset {
     let detail: String
     let resolution: Int
     let bitrate: Double
-    let fps: Int
 }
 
 private let presets: [QualityPreset] = [
-    QualityPreset(name: "省流", detail: "720p", resolution: 720, bitrate: 3, fps: 30),
-    QualityPreset(name: "均衡", detail: "1080p", resolution: 1280, bitrate: 6, fps: 60),
-    QualityPreset(name: "清晰", detail: "1600px", resolution: 1600, bitrate: 12, fps: 60),
-    QualityPreset(name: "原画", detail: "2560px", resolution: 2560, bitrate: 20, fps: 60)
+    QualityPreset(name: "省流", detail: "720p", resolution: 720, bitrate: 3),
+    QualityPreset(name: "均衡", detail: "1080p", resolution: 1280, bitrate: 6),
+    QualityPreset(name: "清晰", detail: "1600px", resolution: 1600, bitrate: 12),
+    QualityPreset(name: "原画", detail: "2560px", resolution: 2560, bitrate: 20)
 ]
+
+/// 帧率上限由平板屏幕刷新率决定，超过刷新率的部分会自动被设备限制
+private let fpsChoices: [Int] = [30, 60, 90, 120, 144]
 
 // MARK: - 基础组件
 
@@ -46,20 +48,27 @@ private struct FieldBox: View {
     @Binding var text: String
     var numeric: Bool = true
     var hint: String? = nil
+    /// 右侧附件（如「默认」按钮），与输入框同处一个 HStack，保证严格对齐
+    var trailing: AnyView? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             MicroLabel(text: label)
-            TextField("", text: $text, prompt: Text(placeholder).foregroundColor(.white.opacity(0.20)))
-                .font(.system(size: 19, weight: .light, design: numeric ? .monospaced : .default))
-                .foregroundColor(.white)
-                .keyboardType(numeric ? .numbersAndPunctuation : .URL)
-                .autocorrectionDisabled(true)
-                .textInputAutocapitalization(.never)
-                .padding(.vertical, 15)
-                .padding(.horizontal, 17)
-                .background(RoundedRectangle(cornerRadius: 15, style: .continuous).fill(Palette.card))
-                .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(Palette.stroke, lineWidth: 1))
+            HStack(spacing: 12) {
+                TextField("", text: $text, prompt: Text(placeholder).foregroundColor(.white.opacity(0.20)))
+                    .font(.system(size: 19, weight: .light, design: numeric ? .monospaced : .default))
+                    .foregroundColor(.white)
+                    .keyboardType(numeric ? .numbersAndPunctuation : .URL)
+                    .autocorrectionDisabled(true)
+                    .textInputAutocapitalization(.never)
+                    .padding(.horizontal, 17)
+                    .frame(height: 52)
+                    .background(RoundedRectangle(cornerRadius: 15, style: .continuous).fill(Palette.card))
+                    .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(Palette.stroke, lineWidth: 1))
+                if let trailing = trailing {
+                    trailing
+                }
+            }
             if let hint = hint {
                 Text(hint)
                     .font(.system(size: 11))
@@ -104,6 +113,7 @@ public struct ScrcpyConnectView: View {
     @State private var ip: String = ""
     @State private var connectPort: String = "5555"
     @State private var presetIndex: Int = 1
+    @State private var fpsIndex: Int = 1
     @State private var showPairing: Bool = false
 
     public init(client: ScrcpyClient) {
@@ -237,59 +247,90 @@ public struct ScrcpyConnectView: View {
         VStack(spacing: 14) {
             FieldBox(label: "设备地址", placeholder: "100.x.y.z", text: $ip)
 
-            HStack(spacing: 14) {
-                FieldBox(
-                    label: "连接端口",
-                    placeholder: "5555",
-                    text: $connectPort,
-                    hint: "一般不用改动，保持 5555 即可（默认）"
+            FieldBox(
+                label: "连接端口",
+                placeholder: "5555",
+                text: $connectPort,
+                hint: "一般不用改动，保持 5555 即可（默认）",
+                trailing: AnyView(
+                    Button {
+                        connectPort = "5555"
+                    } label: {
+                        Text("默认")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(Palette.dim)
+                            .frame(width: 68, height: 52)
+                            .background(RoundedRectangle(cornerRadius: 15, style: .continuous).fill(Palette.card))
+                            .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(Palette.stroke, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
                 )
-                Button {
-                    connectPort = "5555"
-                } label: {
-                    Text("默认")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(Palette.dim)
-                        .frame(width: 70, height: 50)
-                        .background(RoundedRectangle(cornerRadius: 15, style: .continuous).fill(Palette.card))
-                        .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(Palette.stroke, lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 26)
-            }
+            )
         }
     }
 
     // MARK: 画质
 
     private var qualityBlock: some View {
-        HStack(spacing: 8) {
-            ForEach(presets.indices, id: \.self) { i in
-                let p = presets[i]
-                Button {
-                    presetIndex = i
-                } label: {
-                    VStack(spacing: 4) {
-                        Text(p.name)
-                            .font(.system(size: 13, weight: .medium))
-                        Text(p.detail)
-                            .font(.system(size: 10, design: .monospaced))
-                            .opacity(0.55)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                ForEach(presets.indices, id: \.self) { i in
+                    let p = presets[i]
+                    Button {
+                        presetIndex = i
+                    } label: {
+                        VStack(spacing: 4) {
+                            Text(p.name)
+                                .font(.system(size: 13, weight: .medium))
+                            Text(p.detail)
+                                .font(.system(size: 10, design: .monospaced))
+                                .opacity(0.55)
+                        }
+                        .foregroundColor(presetIndex == i ? .black : Palette.dim)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 54)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(presetIndex == i ? Color.white : Palette.card)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(presetIndex == i ? Color.clear : Palette.stroke, lineWidth: 1)
+                        )
                     }
-                    .foregroundColor(presetIndex == i ? .black : Palette.dim)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 54)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(presetIndex == i ? Color.white : Palette.card)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(presetIndex == i ? Color.clear : Palette.stroke, lineWidth: 1)
-                    )
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
+
+            MicroLabel(text: "帧率 fps")
+
+            HStack(spacing: 8) {
+                ForEach(fpsChoices.indices, id: \.self) { i in
+                    Button {
+                        fpsIndex = i
+                    } label: {
+                        Text("\(fpsChoices[i])")
+                            .font(.system(size: 14, weight: .medium, design: .monospaced))
+                            .foregroundColor(fpsIndex == i ? .black : Palette.dim)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 40)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(fpsIndex == i ? Color.white : Palette.card)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(fpsIndex == i ? Color.clear : Palette.stroke, lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            Text("上限取决于平板屏幕刷新率；链路不稳时建议降到 60。")
+                .font(.system(size: 10))
+                .foregroundColor(Palette.label)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -376,7 +417,7 @@ public struct ScrcpyConnectView: View {
         let q = presets[presetIndex]
         profile.resolution = q.resolution
         profile.bitrateMbps = q.bitrate
-        profile.fps = q.fps
+        profile.fps = fpsChoices[fpsIndex]
         profile.audioEnabled = true
         profile.stayAwake = true
         pm.activeProfile = profile
