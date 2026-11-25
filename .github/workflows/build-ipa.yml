@@ -107,7 +107,7 @@ jobs:
             echo "=== paths ==="
             ls -l "$KIT" "$APP" 2>&1 || true
             echo "=== markers in ScrcpyKit ==="
-            for m in TouchMeta onSingleTap cancelsTouchesInView didMoveToWindow; do
+            for m in TouchMeta onSingleTap CancelsTouchesInView didMoveToWindow; do
               if grep -aq "$m" "$KIT" 2>/dev/null; then echo "  $m = yes"; else echo "  $m = no"; fi
             done
             echo "=== markers in ScrcpyApp ==="
@@ -116,7 +116,7 @@ jobs:
             done
             echo "=== verdict ==="
             ok=1
-            for m in TouchMeta onSingleTap cancelsTouchesInView; do
+            for m in TouchMeta onSingleTap CancelsTouchesInView; do
               if ! grep -aq "$m" "$KIT" 2>/dev/null; then ok=0; echo "  MISSING in kit: $m"; fi
             done
             if [ "$ok" = "1" ]; then echo "  PASS"; else echo "  FAIL"; fi
