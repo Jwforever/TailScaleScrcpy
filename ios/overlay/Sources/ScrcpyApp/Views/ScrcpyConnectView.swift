@@ -114,6 +114,7 @@ public struct ScrcpyConnectView: View {
     @State private var connectPort: String = "5555"
     @State private var presetIndex: Int = 1
     @State private var fpsIndex: Int = 1
+    @State private var audioEnabled: Bool = false
     @State private var showPairing: Bool = false
 
     public init(client: ScrcpyClient) {
@@ -331,6 +332,30 @@ public struct ScrcpyConnectView: View {
                 .font(.system(size: 10))
                 .foregroundColor(Palette.label)
                 .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 10) {
+                MicroLabel(text: "音频转发")
+                Spacer()
+                Button {
+                    audioEnabled.toggle()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: audioEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text(audioEnabled ? "开" : "关")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundColor(audioEnabled ? .black : Palette.dim)
+                    .frame(width: 78, height: 34)
+                    .background(Capsule(style: .continuous).fill(audioEnabled ? Color.white : Palette.card))
+                    .overlay(Capsule(style: .continuous).stroke(audioEnabled ? Color.clear : Palette.stroke, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+            Text("音频走未压缩 PCM（约 1.5 Mbps），链路紧张时关掉可明显省带宽。")
+                .font(.system(size: 10))
+                .foregroundColor(Palette.label)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -418,7 +443,7 @@ public struct ScrcpyConnectView: View {
         profile.resolution = q.resolution
         profile.bitrateMbps = q.bitrate
         profile.fps = fpsChoices[fpsIndex]
-        profile.audioEnabled = true
+        profile.audioEnabled = audioEnabled
         profile.stayAwake = true
         pm.activeProfile = profile
         vm.connectDevice(mode: .mirror)
