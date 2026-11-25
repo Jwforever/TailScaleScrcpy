@@ -81,13 +81,17 @@ jobs:
 
       - name: Run ScrcpyKit tests
         working-directory: src
-        run: swift run ScrcpyTests
+        run: |
+          set -o pipefail
+          mkdir -p build
+          swift run ScrcpyTests 2>&1 | tee build/test.log
 
       - name: Build (unsigned)
         working-directory: src
         run: |
           set -euo pipefail
           rm -rf build
+          mkdir -p build
           xcodebuild -project ScrcpyiOS.xcodeproj \
             -scheme ScrcpyApp \
             -configuration Release \
@@ -96,7 +100,7 @@ jobs:
             -derivedDataPath build/dd \
             archive \
             CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO
+            CODE_SIGNING_REQUIRED=NO 2>&1 | tee build/xcodebuild.log
 
       - name: Verify built binary carries the fix
         working-directory: src
@@ -188,3 +192,22 @@ jobs:
           echo "=== diagnostic verdict ==="
           cat src/build/verify.txt
           grep -q "PASS" src/build/verify.txt || { echo "VERDICT: fix not compiled in"; exit 1; }
+
+      - name: Publish failure logs
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -e
+          TAG="ci-logs"
+          mkdir -p src/build
+          touch src/build/test.log src/build/xcodebuild.log
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" src/build/test.log src/build/xcodebuild.log --clobber
+          else
+            gh release create "$TAG" src/build/test.log src/build/xcodebuild.log \
+              --title "CI failure logs" \
+              --notes "自动上传的构建日志，用于定位失败原因" \
+              --prerelease
+          fi

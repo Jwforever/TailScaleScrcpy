@@ -561,23 +561,29 @@ public final class ScrcpyClient: ObservableObject {
         droppingVideo = true
         fgLock.unlock()
 
-        Task { @MainActor [weak self] in
+        let watchdog = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 2_500_000_000)
             guard let self = self else { return }
 
             self.fgLock.lock()
             let stillDropping = self.droppingVideo
             self.fgLock.unlock()
+            if !stillDropping { return }
 
-            guard stillDropping, case .mirroring = self.state else { return }
+            var isMirroring = false
+            if case .mirroring = self.state { isMirroring = true }
+            if !isMirroring { return }
 
             let host = self.host
             let port = self.port
-            self.stop()
-            self.host = host
-            self.port = port
-            self.start()
+            await MainActor.run {
+                self.stop()
+                self.host = host
+                self.port = port
+                self.start()
+            }
         }
+        _ = watchdog
     }
 
     public func stop() {
