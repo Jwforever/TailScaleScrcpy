@@ -1,16 +1,17 @@
 import SwiftUI
 import ScrcpyKit
 
-// MARK: - 设计令牌
+// MARK: - 浅色设计令牌
 
 private enum Palette {
-    static let bg = Color.black
-    static let card = Color.white.opacity(0.045)
-    static let cardRaised = Color.white.opacity(0.07)
-    static let stroke = Color.white.opacity(0.09)
-    static let accent = Color(red: 0.20, green: 0.78, blue: 0.95)
-    static let label = Color.white.opacity(0.36)
-    static let dim = Color.white.opacity(0.55)
+    static let bg = Color(red: 0.953, green: 0.957, blue: 0.969)
+    static let card = Color.white
+    static let cardAlt = Color(red: 0.973, green: 0.976, blue: 0.984)
+    static let stroke = Color(red: 0.894, green: 0.906, blue: 0.925)
+    static let accent = Color(red: 0.039, green: 0.518, blue: 1.0)
+    static let text = Color(red: 0.067, green: 0.075, blue: 0.094)
+    static let dim = Color(red: 0.420, green: 0.451, blue: 0.502)
+    static let label = Color(red: 0.604, green: 0.631, blue: 0.675)
 }
 
 private struct QualityPreset {
@@ -23,21 +24,20 @@ private struct QualityPreset {
 private let presets: [QualityPreset] = [
     QualityPreset(name: "省流", detail: "720p", resolution: 720, bitrate: 3),
     QualityPreset(name: "均衡", detail: "1080p", resolution: 1280, bitrate: 6),
-    QualityPreset(name: "清晰", detail: "1600px", resolution: 1600, bitrate: 12),
-    QualityPreset(name: "原画", detail: "2560px", resolution: 2560, bitrate: 20)
+    QualityPreset(name: "清晰", detail: "1600", resolution: 1600, bitrate: 12),
+    QualityPreset(name: "原画", detail: "2560", resolution: 2560, bitrate: 20)
 ]
 
-/// 帧率上限由平板屏幕刷新率决定，超过刷新率的部分会自动被设备限制
 private let fpsChoices: [Int] = [30, 60, 90, 120, 144]
 
-// MARK: - 基础组件
+// MARK: - 组件
 
 private struct MicroLabel: View {
     let text: String
     var body: some View {
         Text(text.uppercased())
-            .font(.system(size: 10, weight: .semibold))
-            .tracking(1.8)
+            .font(.system(size: 9, weight: .semibold))
+            .tracking(1.4)
             .foregroundColor(Palette.label)
     }
 }
@@ -47,33 +47,25 @@ private struct FieldBox: View {
     let placeholder: String
     @Binding var text: String
     var numeric: Bool = true
-    var hint: String? = nil
-    /// 右侧附件（如「默认」按钮），与输入框同处一个 HStack，保证严格对齐
     var trailing: AnyView? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
+        VStack(alignment: .leading, spacing: 6) {
             MicroLabel(text: label)
-            HStack(spacing: 12) {
-                TextField("", text: $text, prompt: Text(placeholder).foregroundColor(.white.opacity(0.20)))
-                    .font(.system(size: 19, weight: .light, design: numeric ? .monospaced : .default))
-                    .foregroundColor(.white)
+            HStack(spacing: 8) {
+                TextField("", text: $text, prompt: Text(placeholder).foregroundColor(Palette.label.opacity(0.55)))
+                    .font(.system(size: 16, weight: .regular, design: numeric ? .monospaced : .default))
+                    .foregroundColor(Palette.text)
                     .keyboardType(numeric ? .numbersAndPunctuation : .URL)
                     .autocorrectionDisabled(true)
                     .textInputAutocapitalization(.never)
-                    .padding(.horizontal, 17)
-                    .frame(height: 52)
-                    .background(RoundedRectangle(cornerRadius: 15, style: .continuous).fill(Palette.card))
-                    .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(Palette.stroke, lineWidth: 1))
+                    .padding(.horizontal, 14)
+                    .frame(height: 44)
+                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.cardAlt))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Palette.stroke, lineWidth: 1))
                 if let trailing = trailing {
                     trailing
                 }
-            }
-            if let hint = hint {
-                Text(hint)
-                    .font(.system(size: 11))
-                    .foregroundColor(Palette.label)
-                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -81,29 +73,29 @@ private struct FieldBox: View {
 
 private struct SoftButtonStyle: ButtonStyle {
     var filled: Bool = true
-    var height: CGFloat = 52
+    var height: CGFloat = 46
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 16, weight: .semibold))
-            .foregroundColor(filled ? .black : .white)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundColor(filled ? .white : Palette.text)
             .frame(maxWidth: .infinity)
             .frame(height: height)
             .background(
-                Capsule(style: .continuous)
-                    .fill(filled ? Color.white : Palette.cardRaised)
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .fill(filled ? Palette.accent : Palette.card)
             )
             .overlay(
-                Capsule(style: .continuous)
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .stroke(filled ? Color.clear : Palette.stroke, lineWidth: 1)
             )
-            .opacity(configuration.isPressed ? 0.72 : 1)
-            .scaleEffect(configuration.isPressed ? 0.982 : 1)
-            .animation(.easeOut(duration: 0.13), value: configuration.isPressed)
+            .opacity(configuration.isPressed ? 0.82 : 1)
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
-// MARK: - 主界面（配置）
+// MARK: - 配置页
 
 public struct ScrcpyConnectView: View {
     @ObservedObject public var client: ScrcpyClient
@@ -142,283 +134,236 @@ public struct ScrcpyConnectView: View {
         ZStack {
             Palette.bg.ignoresSafeArea()
 
-            RadialGradient(
-                colors: [Palette.accent.opacity(0.20), Color.clear],
-                center: .init(x: 0.5, y: -0.05),
-                startRadius: 0,
-                endRadius: 560
-            )
-            .ignoresSafeArea()
-            .blur(radius: 30)
-
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 26) {
+                VStack(alignment: .leading, spacing: 14) {
                     header
-                    firstRunCard
-                    section("01", "设备", content: { deviceBlock })
-                    section("02", "画质", content: { qualityBlock })
+                    pairBanner
+                    deviceSection
+                    qualitySection
                     actions
                     statusBar
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 28)
-                .padding(.bottom, 44)
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 18)
             }
         }
         .onAppear(perform: hydrate)
         .sheet(isPresented: $showPairing) {
             PairingSheet(vm: vm, host: ip)
-                .preferredColorScheme(.dark)
         }
     }
 
     // MARK: 头部
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            MicroLabel(text: "scrcpy · tailscale")
+        VStack(alignment: .leading, spacing: 2) {
             Text("无线投屏")
-                .font(.system(size: 38, weight: .thin))
-                .foregroundColor(.white)
-            Text("配一次，之后连着端口即可")
-                .font(.system(size: 13))
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundColor(Palette.text)
+            Text("scrcpy over tailscale · 配一次，之后连端口即可")
+                .font(.system(size: 10))
                 .foregroundColor(Palette.dim)
         }
     }
 
-    // MARK: 首次使用引导
+    // MARK: 首次使用
 
-    private var firstRunCard: some View {
-        HStack(alignment: .center, spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(hasPaired ? "已配对过，可直接连接" : "如果是初次使用，请点击配对")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white)
-                Text(hasPaired ? "换了设备或重置过调试密钥，才需要重新配对" : "配对只做一次，之后只需连接")
-                    .font(.system(size: 11))
-                    .foregroundColor(Palette.label)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 8)
+    private var pairBanner: some View {
+        HStack(spacing: 9) {
+            Image(systemName: hasPaired ? "checkmark.circle.fill" : "info.circle.fill")
+                .font(.system(size: 12))
+                .foregroundColor(Palette.accent)
+            Text(hasPaired ? "已配对，可直接连接" : "如果是初次使用，请点击配对")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(Palette.text)
+            Spacer(minLength: 4)
             Button {
                 showPairing = true
             } label: {
                 Text("配对")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 18)
-                    .frame(height: 36)
-                    .background(Capsule(style: .continuous).fill(Color.white))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 13)
+                    .frame(height: 28)
+                    .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Palette.accent))
             }
             .buttonStyle(.plain)
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(hasPaired ? Palette.card : Palette.accent.opacity(0.14))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(hasPaired ? Palette.stroke : Palette.accent.opacity(0.35), lineWidth: 1)
-        )
-    }
-
-    @ViewBuilder
-    private func section<C: View>(_ index: String, _ title: String, @ViewBuilder content: () -> C) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 10) {
-                Text(index)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundColor(Palette.accent.opacity(0.85))
-                Rectangle()
-                    .fill(Palette.stroke)
-                    .frame(height: 0.5)
-                Text(title)
-                    .font(.system(size: 11, weight: .medium))
-                    .tracking(1.2)
-                    .foregroundColor(Palette.label)
-            }
-            content()
-        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 9)
+        .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(Palette.accent.opacity(0.08)))
+        .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(Palette.accent.opacity(0.18), lineWidth: 1))
     }
 
     // MARK: 设备
 
-    private var deviceBlock: some View {
-        VStack(spacing: 14) {
+    private var deviceSection: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            sectionTitle("设备")
             FieldBox(label: "设备地址", placeholder: "100.x.y.z", text: $ip)
-
             FieldBox(
                 label: "连接端口",
                 placeholder: "5555",
                 text: $connectPort,
-                hint: "一般不用改动，保持 5555 即可（默认）",
                 trailing: AnyView(
                     Button {
                         connectPort = "5555"
                     } label: {
-                        Text("默认")
-                            .font(.system(size: 13, weight: .medium))
+                        Text("默认 5555")
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundColor(Palette.dim)
-                            .frame(width: 68, height: 52)
-                            .background(RoundedRectangle(cornerRadius: 15, style: .continuous).fill(Palette.card))
-                            .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(Palette.stroke, lineWidth: 1))
+                            .padding(.horizontal, 11)
+                            .frame(height: 44)
+                            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.card))
+                            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Palette.stroke, lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                 )
             )
+            Text("端口一般不用改动，保持 5555 即可")
+                .font(.system(size: 9))
+                .foregroundColor(Palette.label)
         }
+        .padding(11)
+        .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Palette.card))
+        .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).stroke(Palette.stroke, lineWidth: 1))
     }
 
     // MARK: 画质
 
-    private var qualityBlock: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
+    private var qualitySection: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            sectionTitle("画质")
+
+            HStack(spacing: 6) {
                 ForEach(presets.indices, id: \.self) { i in
                     let p = presets[i]
                     Button {
                         presetIndex = i
                     } label: {
-                        VStack(spacing: 4) {
+                        VStack(spacing: 1) {
                             Text(p.name)
-                                .font(.system(size: 13, weight: .medium))
+                                .font(.system(size: 12, weight: .medium))
                             Text(p.detail)
-                                .font(.system(size: 10, design: .monospaced))
-                                .opacity(0.55)
+                                .font(.system(size: 9, design: .monospaced))
+                                .opacity(0.65)
                         }
-                        .foregroundColor(presetIndex == i ? .black : Palette.dim)
+                        .foregroundColor(presetIndex == i ? .white : Palette.dim)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 54)
+                        .frame(height: 42)
                         .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(presetIndex == i ? Color.white : Palette.card)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(presetIndex == i ? Color.clear : Palette.stroke, lineWidth: 1)
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(presetIndex == i ? Palette.accent : Palette.cardAlt)
                         )
                     }
                     .buttonStyle(.plain)
                 }
             }
-
-            MicroLabel(text: "帧率 fps")
 
             HStack(spacing: 8) {
-                ForEach(fpsChoices.indices, id: \.self) { i in
-                    Button {
-                        fpsIndex = i
-                    } label: {
-                        Text("\(fpsChoices[i])")
-                            .font(.system(size: 14, weight: .medium, design: .monospaced))
-                            .foregroundColor(fpsIndex == i ? .black : Palette.dim)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 40)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .fill(fpsIndex == i ? Color.white : Palette.card)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .stroke(fpsIndex == i ? Color.clear : Palette.stroke, lineWidth: 1)
-                            )
+                MicroLabel(text: "帧率")
+                Spacer()
+                HStack(spacing: 5) {
+                    ForEach(fpsChoices.indices, id: \.self) { i in
+                        Button {
+                            fpsIndex = i
+                        } label: {
+                            Text("\(fpsChoices[i])")
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .foregroundColor(fpsIndex == i ? .white : Palette.dim)
+                                .frame(width: 40, height: 30)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .fill(fpsIndex == i ? Palette.accent : Palette.cardAlt)
+                                )
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
 
-            Text("上限取决于平板屏幕刷新率；链路不稳时建议降到 60。")
-                .font(.system(size: 10))
-                .foregroundColor(Palette.label)
-                .fixedSize(horizontal: false, vertical: true)
-
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 MicroLabel(text: "音频转发")
+                Text("未压缩 PCM，约 1.5 Mbps")
+                    .font(.system(size: 9))
+                    .foregroundColor(Palette.label)
                 Spacer()
                 Button {
                     audioEnabled.toggle()
                 } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: audioEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                            .font(.system(size: 11, weight: .semibold))
-                        Text(audioEnabled ? "开" : "关")
-                            .font(.system(size: 12, weight: .medium))
-                    }
-                    .foregroundColor(audioEnabled ? .black : Palette.dim)
-                    .frame(width: 78, height: 34)
-                    .background(Capsule(style: .continuous).fill(audioEnabled ? Color.white : Palette.card))
-                    .overlay(Capsule(style: .continuous).stroke(audioEnabled ? Color.clear : Palette.stroke, lineWidth: 1))
+                    Text(audioEnabled ? "开" : "关")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(audioEnabled ? .white : Palette.dim)
+                        .frame(width: 46, height: 28)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(audioEnabled ? Palette.accent : Palette.cardAlt)
+                        )
                 }
                 .buttonStyle(.plain)
             }
-            Text("音频走未压缩 PCM（约 1.5 Mbps），链路紧张时关掉可明显省带宽。")
-                .font(.system(size: 10))
-                .foregroundColor(Palette.label)
-                .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(11)
+        .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Palette.card))
+        .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).stroke(Palette.stroke, lineWidth: 1))
     }
 
     // MARK: 连接 / 断开
 
     private var actions: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 12) {
-                Button {
-                    connect()
-                } label: {
-                    HStack(spacing: 8) {
-                        if isConnecting {
-                            ProgressView()
-                                .progressViewStyle(.circular)
-                                .scaleEffect(0.7)
-                                .tint(.black)
-                        }
-                        Text(isConnecting ? "连接中" : (isMirroring ? "已连接" : "连接"))
+        HStack(spacing: 9) {
+            Button {
+                connect()
+            } label: {
+                HStack(spacing: 6) {
+                    if isConnecting {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .scaleEffect(0.6)
+                            .tint(.white)
                     }
+                    Text(isConnecting ? "连接中" : (isMirroring ? "已连接" : "连接"))
                 }
-                .buttonStyle(SoftButtonStyle(filled: true))
-                .disabled(ip.trimmingCharacters(in: .whitespaces).isEmpty || isConnecting || isMirroring)
-
-                Button {
-                    disconnect()
-                } label: {
-                    Text("断开")
-                }
-                .buttonStyle(SoftButtonStyle(filled: false))
-                .frame(width: 108)
-                .disabled(!isMirroring && !isConnecting)
             }
+            .buttonStyle(SoftButtonStyle(filled: true))
+            .disabled(ip.trimmingCharacters(in: .whitespaces).isEmpty || isConnecting || isMirroring)
+
+            Button {
+                disconnect()
+            } label: {
+                Text("断开")
+            }
+            .buttonStyle(SoftButtonStyle(filled: false))
+            .frame(width: 86)
+            .disabled(!isMirroring && !isConnecting)
         }
-        .padding(.top, 2)
     }
 
     // MARK: 状态
 
     private var statusBar: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 6, height: 6)
-                Text(statusText)
-                    .font(.system(size: 12))
-                    .foregroundColor(errorText == nil ? Palette.dim : Color.orange.opacity(0.95))
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 4)
-                Text("adb over wifi")
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundColor(Palette.label)
-            }
+        HStack(spacing: 6) {
+            Circle()
+                .fill(statusColor)
+                .frame(width: 5, height: 5)
+            Text(statusText)
+                .font(.system(size: 10))
+                .foregroundColor(errorText == nil ? Palette.dim : Color(red: 0.85, green: 0.35, blue: 0.10))
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 4)
+            Text("adb over wifi")
+                .font(.system(size: 9, design: .monospaced))
+                .foregroundColor(Palette.label)
         }
-        .padding(.top, 4)
     }
 
     private var statusColor: Color {
-        if errorText != nil { return Color.orange }
-        if isMirroring { return Palette.accent }
+        if errorText != nil { return Color(red: 0.90, green: 0.45, blue: 0.13) }
+        if isMirroring { return Color(red: 0.20, green: 0.70, blue: 0.35) }
         if isConnecting { return Palette.accent.opacity(0.6) }
-        return Color.white.opacity(0.22)
+        return Palette.label
     }
 
     private var statusText: String {
@@ -426,6 +371,17 @@ public struct ScrcpyConnectView: View {
         if case .connecting(let step) = client.state { return step }
         if isMirroring { return "已连接 · \(client.deviceName.isEmpty ? "Android" : client.deviceName)" }
         return "未连接"
+    }
+
+    private func sectionTitle(_ text: String) -> some View {
+        HStack(spacing: 6) {
+            Text(text)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(Palette.text)
+            Rectangle()
+                .fill(Palette.stroke)
+                .frame(height: 0.5)
+        }
     }
 
     // MARK: 行为
@@ -454,7 +410,7 @@ public struct ScrcpyConnectView: View {
     }
 }
 
-// MARK: - 配对二级页
+// MARK: - 配对二级页（浅色）
 
 private struct PairingSheet: View {
     @ObservedObject var vm: DeviceDiscoveryViewModel
@@ -469,51 +425,70 @@ private struct PairingSheet: View {
             Palette.bg.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 24) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 8) {
-                            MicroLabel(text: "pairing")
+                VStack(alignment: .leading, spacing: 13) {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 2) {
                             Text("配对设备")
-                                .font(.system(size: 30, weight: .thin))
-                                .foregroundColor(.white)
+                                .font(.system(size: 22, weight: .semibold))
+                                .foregroundColor(Palette.text)
+                            Text("只需在初次使用时做一次")
+                                .font(.system(size: 10))
+                                .foregroundColor(Palette.dim)
                         }
                         Spacer()
                         Button {
                             dismiss()
                         } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(.white.opacity(0.7))
-                                .frame(width: 34, height: 34)
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(Palette.dim)
+                                .frame(width: 28, height: 28)
                                 .background(Circle().fill(Palette.card))
+                                .overlay(Circle().stroke(Palette.stroke, lineWidth: 1))
                         }
                         .buttonStyle(.plain)
                     }
 
-                    Text("平板：设置 → 开发者选项 → 无线调试 → 使用配对码配对设备\n把弹窗里的「端口」和「6 位配对码」填在下面。")
-                        .font(.system(size: 12))
-                        .foregroundColor(Palette.dim)
-                        .lineSpacing(4)
-                        .fixedSize(horizontal: false, vertical: true)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("平板操作路径")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(Palette.text)
+                        Text("设置 → 开发者选项 → 无线调试 → 使用配对码配对设备\n把弹窗里的「端口」和「6 位配对码」填到下面")
+                            .font(.system(size: 11))
+                            .foregroundColor(Palette.dim)
+                            .lineSpacing(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(11)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(Palette.card))
 
-                    VStack(spacing: 14) {
-                        FieldBox(label: "设备地址", placeholder: "100.x.y.z", text: .constant(host.isEmpty ? "未填写" : host))
-                            .disabled(true)
-                        HStack(spacing: 14) {
-                            FieldBox(label: "配对端口", placeholder: "40303", text: $pairPort)
-                            FieldBox(label: "配对码", placeholder: "730124", text: $pairCode)
-                        }
+                    VStack(alignment: .leading, spacing: 6) {
+                        MicroLabel(text: "设备地址")
+                        Text(host.isEmpty ? "（请先在主页填写设备地址）" : host)
+                            .font(.system(size: 15, design: .monospaced))
+                            .foregroundColor(host.isEmpty ? Palette.label : Palette.text)
+                            .padding(.horizontal, 14)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(height: 44)
+                            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.cardAlt))
+                            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Palette.stroke, lineWidth: 1))
+                    }
+
+                    HStack(spacing: 8) {
+                        FieldBox(label: "配对端口", placeholder: "40303", text: $pairPort)
+                        FieldBox(label: "配对码", placeholder: "730124", text: $pairCode)
                     }
 
                     Button {
                         vm.pairDevice(hostInput: host, portInput: pairPort, codeInput: pairCode)
                     } label: {
-                        HStack(spacing: 8) {
+                        HStack(spacing: 6) {
                             if vm.isPairing {
                                 ProgressView()
                                     .progressViewStyle(.circular)
-                                    .scaleEffect(0.7)
-                                    .tint(.black)
+                                    .scaleEffect(0.6)
+                                    .tint(.white)
                             }
                             Text(vm.isPairing ? "配对中" : "开始配对")
                         }
@@ -523,8 +498,8 @@ private struct PairingSheet: View {
 
                     if let msg = vm.pairStatusMessage {
                         Text(msg)
-                            .font(.system(size: 12))
-                            .foregroundColor(vm.pairSuccess ? Palette.accent : Color.orange.opacity(0.95))
+                            .font(.system(size: 11))
+                            .foregroundColor(vm.pairSuccess ? Palette.accent : Color(red: 0.85, green: 0.35, blue: 0.10))
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -539,15 +514,14 @@ private struct PairingSheet: View {
                         .buttonStyle(SoftButtonStyle(filled: false))
                     }
 
-                    Text("说明：配对只在第一次需要。配对成功后关掉弹窗回主页点「连接」即可，之后端口保持 5555 一般不用再改。")
-                        .font(.system(size: 11))
+                    Text("配对成功后关掉本页，回主页点「连接」即可；之后端口保持 5555，一般不用再改。")
+                        .font(.system(size: 10))
                         .foregroundColor(Palette.label)
-                        .lineSpacing(3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 30)
-                .padding(.bottom, 40)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 22)
             }
         }
     }

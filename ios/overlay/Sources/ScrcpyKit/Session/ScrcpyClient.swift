@@ -76,6 +76,10 @@ public final class ScrcpyClient: ObservableObject {
     private var controlStream: AdbStream?
     private let controlQueue = ControlQueue()
 
+    // 前台恢复用的状态
+    private let fgLock = NSLock()
+    private var droppingVideo = false
+
     private var videoTask: Task<Void, Never>?
     private var audioTask: Task<Void, Never>?
     private var controlTask: Task<Void, Never>?
@@ -366,6 +370,19 @@ public final class ScrcpyClient: ObservableObject {
                         buffer = Data(buffer.dropFirst(totalPacketLen))
 
                         guard let client = self else { return }
+
+                        // App 从后台回来时，adb 单连接上积压了大量陈旧视频数据，
+                        // 会堵住控制消息的 ACK。这里先丢掉非关键帧，把积压快速排空。
+                        client.fgLock.lock()
+                        let skipStale = client.droppingVideo
+                        if skipStale && header.isKeyFrame {
+                            client.droppingVideo = false
+                        }
+                        client.fgLock.unlock()
+                        if skipStale && !header.isKeyFrame {
+                            continue
+                        }
+
                         client.decoder.decodePacket(
                             data: payload,
                             pts: header.pts,
@@ -534,8 +551,37 @@ public final class ScrcpyClient: ObservableObject {
         }
     }
 
-    public func stop() {
+    /// App 回到前台时调用：排空积压、恢复控制；2.5 秒仍未恢复则直接重连
+    public func handleForeground() {
+        guard case .mirroring = state else { return }
+
         controlQueue.clear()
+
+        fgLock.lock()
+        droppingVideo = true
+        fgLock.unlock()
+
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            guard let self = self else { return }
+
+            self.fgLock.lock()
+            let stillDropping = self.droppingVideo
+            self.fgLock.unlock()
+
+            guard stillDropping, case .mirroring = self.state else { return }
+
+            let host = self.host
+            let port = self.port
+            self.stop()
+            self.host = host
+            self.port = port
+            self.start()
+        }
+    }
+
+    public func stop() {
+        controlQueue.detach()
         statsTimer?.invalidate()
         statsTimer = nil
         videoTask?.cancel()
@@ -631,7 +677,15 @@ final class ControlQueue: @unchecked Sendable {
         lock.unlock()
     }
 
+    /// 只丢弃待发消息，保留连接（前台恢复时用）
     func clear() {
+        lock.lock()
+        items.removeAll()
+        lock.unlock()
+    }
+
+    /// 断开时使用：连 stream 一起释放
+    func detach() {
         lock.lock()
         items.removeAll()
         stream = nil
