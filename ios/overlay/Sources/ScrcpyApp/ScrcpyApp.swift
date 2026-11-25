@@ -18,7 +18,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 public struct RootContentView: View {
     @ObservedObject public var client: ScrcpyClient
-    @Environment(\.scenePhase) private var scenePhase
 
     public init(client: ScrcpyClient) {
         self.client = client
@@ -38,13 +37,6 @@ public struct RootContentView: View {
         #if canImport(UIKit)
         .preferredColorScheme(.dark)
         #endif
-        .onChange(of: scenePhase) { phase in
-            // 回到前台：adb 单连接上会积压后台期间的视频数据，
-            // 先把陈旧帧丢掉，让控制消息的通道尽快恢复
-            if phase == .active {
-                client.handleForeground()
-            }
-        }
     }
 }
 

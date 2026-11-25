@@ -194,7 +194,7 @@ public struct ScrcpyConnectView: View {
                 .font(.system(size: 13))
                 .foregroundColor(Palette.accent)
             VStack(alignment: .leading, spacing: 1) {
-                Text("初次使用？需要先在平板上开启 5555")
+                Text("初次使用？需要先在安卓被控端开启 5555")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(Palette.text)
                 Text("iOS 端不支持 adb 配对，只能用 5555 明文调试端口")
@@ -480,6 +480,7 @@ private struct SetupGuideSheet: View {
                             VStack(alignment: .leading, spacing: 14) {
                                 noRootCard
                                 restartCard
+                                authCard
                                 addressCard
                             }
                         }
@@ -489,6 +490,7 @@ private struct SetupGuideSheet: View {
                             rootCard
                             noRootCard
                             restartCard
+                            authCard
                             addressCard
                         }
                     }
@@ -504,7 +506,7 @@ private struct SetupGuideSheet: View {
 
     private var whyCard: some View {
         card(title: "为什么不支持「初次无线配对」", tint: Palette.warm) {
-            Text("Android 11 起的「无线调试配对」并不是普通 adb 连接，它用的是独立的 pairing 协议：SPAKE2 密钥交换 + TLS-PSK 加密握手，配对成功才下发证书。\n\n本 App 的 iOS 端只实现了经典 adb 协议（AUTH 用 RSA 公钥签名），没有实现 pairing 握手，所以在手机上无法完成初次配对。\n\n因此必须先在平板侧把 adbd 开成 5555 的明文 TCP 端口，iOS 才能连上去。")
+            Text("Android 11 起的「无线调试配对」并不是普通 adb 连接，它用的是独立的 pairing 协议：SPAKE2 密钥交换 + TLS-PSK 加密握手，配对成功才下发证书。\n\n本 App 的 iOS 端只实现了经典 adb 协议（AUTH 用 RSA 公钥签名），没有实现 pairing 握手，所以在手机上无法完成初次配对。\n\n因此必须先在安卓被控端把 adbd 开成 5555 的明文 TCP 端口，iOS 才能连上去。")
                 .font(.system(size: 11))
                 .foregroundColor(Palette.dim)
                 .lineSpacing(3)
@@ -515,7 +517,7 @@ private struct SetupGuideSheet: View {
     private var rootCard: some View {
         card(title: "方案 A · 设备已 root（推荐）", tint: Palette.accent) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("在平板上打开带终端的文件管理器（如 MT 管理器 → 终端模拟器），依次执行：")
+                Text("在被控端（安卓设备）打开带终端的文件管理器，例如 MT 管理器 → 终端模拟器，依次执行：")
                     .font(.system(size: 11))
                     .foregroundColor(Palette.dim)
                     .lineSpacing(3)
@@ -533,7 +535,7 @@ private struct SetupGuideSheet: View {
                 su -c "setprop service.adb.tcp.port 5555"
                 su -c "stop adbd; start adbd"
                 """)
-                Text("执行后 adbd 会以 5555 端口监听，回到本页填地址点「连接」即可。")
+                Text("执行后 adbd 会以 5555 端口监听。回到本页填地址点「连接」，首次连接时被控端会弹「允许 USB 调试」，勾选始终允许即可。")
                     .font(.system(size: 11))
                     .foregroundColor(Palette.dim)
                     .lineSpacing(3)
@@ -551,28 +553,28 @@ private struct SetupGuideSheet: View {
                 codeBlock("""
                 adb devices
                 adb tcpip 5555
-                adb connect 平板IP:5555
+                adb connect 被控端IP:5555
                 """)
 
                 Text("B2. 用 scrcpy 一步到位")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(Palette.text)
                 codeBlock("""
-                scrcpy --tcpip=平板IP:5555
+                scrcpy --tcpip=被控端IP:5555
                 """)
 
                 Text("B3. 电脑做无线配对（Android 11+，不用插线）")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(Palette.text)
-                Text("平板：设置 → 开发者选项 → 无线调试 → 使用配对码配对设备，记下「IP:配对端口」与 6 位配对码。")
+                Text("被控端：设置 → 开发者选项 → 无线调试 → 使用配对码配对设备，记下「IP:配对端口」与 6 位配对码。")
                     .font(.system(size: 11))
                     .foregroundColor(Palette.dim)
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
                 codeBlock("""
-                adb pair 平板IP:配对端口
+                adb pair 被控端IP:配对端口
                 # 按提示输入 6 位配对码
-                adb connect 平板IP:连接端口
+                adb connect 被控端IP:连接端口
                 adb tcpip 5555
                 """)
 
@@ -595,9 +597,19 @@ private struct SetupGuideSheet: View {
         }
     }
 
+    private var authCard: some View {
+        card(title: "关于授权（新客户端首次连接）", tint: Palette.accent) {
+            Text("即便端口已经是 5555，第一次从某个客户端（比如这台 iPhone）连过去时，被控端仍会弹出「允许 USB 调试吗」——必须点允许，且当时屏幕要处于解锁状态。\n\n授权是按「客户端公钥」记的，允许之后公钥写入被控端的 /data/misc/adb/adb_keys，重启也不会丢，同一客户端以后不再弹窗。\n\n所以：开机自动开 5555 只能解决「端口在不在监听」，解决不了「要不要授权」。已 root 的设备可以把已授权的公钥直接写进 adb_keys 来免弹窗。")
+                .font(.system(size: 11))
+                .foregroundColor(Palette.dim)
+                .lineSpacing(3)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     private var addressCard: some View {
-        card(title: "关于「平板IP」", tint: Palette.accent) {
-            Text("走 Tailscale 就填 100.x.y.z 的 tailnet 地址（主页会自动带出上次用过的）。\n局域网直连则填平板在 Wi-Fi 里的 192.168.x.x。")
+        card(title: "关于「被控端 IP」", tint: Palette.accent) {
+            Text("走 Tailscale 就填 100.x.y.z 的 tailnet 地址（主页会自动带出上次用过的）。\n局域网直连则填被控端在 Wi-Fi 里的 192.168.x.x。")
                 .font(.system(size: 11))
                 .foregroundColor(Palette.dim)
                 .lineSpacing(3)
