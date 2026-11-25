@@ -551,9 +551,13 @@ public final class ScrcpyClient: ObservableObject {
         }
     }
 
-    /// App 回到前台时调用：排空积压、恢复控制；2.5 秒仍未恢复则直接重连
+    /// App 回到前台时调用：排空积压、恢复控制；2.5 秒仍未恢复则重连
     public func handleForeground() {
-        guard case .mirroring = state else { return }
+        if case .mirroring = state {
+            // 继续
+        } else {
+            return
+        }
 
         controlQueue.clear()
 
@@ -561,29 +565,24 @@ public final class ScrcpyClient: ObservableObject {
         droppingVideo = true
         fgLock.unlock()
 
-        let watchdog = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 2_500_000_000)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
             guard let self = self else { return }
-
             self.fgLock.lock()
             let stillDropping = self.droppingVideo
             self.fgLock.unlock()
             if !stillDropping { return }
 
-            var isMirroring = false
-            if case .mirroring = self.state { isMirroring = true }
-            if !isMirroring { return }
+            var mirroring = false
+            if case .mirroring = self.state { mirroring = true }
+            if !mirroring { return }
 
-            let host = self.host
-            let port = self.port
-            await MainActor.run {
-                self.stop()
-                self.host = host
-                self.port = port
-                self.start()
-            }
+            let savedHost = self.host
+            let savedPort = self.port
+            self.stop()
+            self.host = savedHost
+            self.port = savedPort
+            self.start()
         }
-        _ = watchdog
     }
 
     public func stop() {

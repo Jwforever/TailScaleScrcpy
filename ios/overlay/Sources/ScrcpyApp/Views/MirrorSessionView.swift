@@ -48,7 +48,7 @@ public struct MirrorSessionView: View {
                 // Top HUD Bar
                 VStack {
                     if showControls {
-                        topHudBar
+                        topHudBar(isLandscape: isLandscape)
                             .transition(.move(edge: .top).combined(with: .opacity))
                     }
 
@@ -223,7 +223,7 @@ public struct MirrorSessionView: View {
     }
 
     // MARK: - Top HUD Bar
-    private var topHudBar: some View {
+    private func topHudBar(isLandscape: Bool) -> some View {
         HStack(spacing: 12) {
             // Back to Discovery Button
             Button(action: { client.stop() }) {
@@ -304,7 +304,8 @@ public struct MirrorSessionView: View {
                     .foregroundColor(.white.opacity(0.8))
             }
         }
-        .padding()
+        .padding(.horizontal, isLandscape ? 10 : 16)
+        .padding(.vertical, isLandscape ? 6 : 14)
         .background(
             LinearGradient(
                 colors: [.black.opacity(0.7), .clear],

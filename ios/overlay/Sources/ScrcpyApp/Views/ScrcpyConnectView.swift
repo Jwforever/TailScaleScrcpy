@@ -7,8 +7,10 @@ private enum Palette {
     static let bg = Color(red: 0.953, green: 0.957, blue: 0.969)
     static let card = Color.white
     static let cardAlt = Color(red: 0.973, green: 0.976, blue: 0.984)
+    static let codeBg = Color(red: 0.941, green: 0.945, blue: 0.957)
     static let stroke = Color(red: 0.894, green: 0.906, blue: 0.925)
     static let accent = Color(red: 0.039, green: 0.518, blue: 1.0)
+    static let warm = Color(red: 0.85, green: 0.45, blue: 0.10)
     static let text = Color(red: 0.067, green: 0.075, blue: 0.094)
     static let dim = Color(red: 0.420, green: 0.451, blue: 0.502)
     static let label = Color(red: 0.604, green: 0.631, blue: 0.675)
@@ -101,13 +103,14 @@ public struct ScrcpyConnectView: View {
     @ObservedObject public var client: ScrcpyClient
     @StateObject private var vm: DeviceDiscoveryViewModel
     @ObservedObject private var pm = ProfileManager.shared
+    @Environment(\.verticalSizeClass) private var vSize
 
     @State private var ip: String = ""
     @State private var connectPort: String = "5555"
     @State private var presetIndex: Int = 1
     @State private var fpsIndex: Int = 1
     @State private var audioEnabled: Bool = false
-    @State private var showPairing: Bool = false
+    @State private var showGuide: Bool = false
 
     public init(client: ScrcpyClient) {
         self.client = client
@@ -115,6 +118,7 @@ public struct ScrcpyConnectView: View {
     }
 
     private var isMirroring: Bool { client.state == .mirroring }
+    private var isLandscape: Bool { vSize == .compact }
 
     private var isConnecting: Bool {
         if case .connecting = client.state { return true }
@@ -126,31 +130,46 @@ public struct ScrcpyConnectView: View {
         return nil
     }
 
-    private var hasPaired: Bool {
-        UserDefaults.standard.bool(forKey: "scrcpy_has_paired")
-    }
-
     public var body: some View {
         ZStack {
             Palette.bg.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 14) {
-                    header
-                    pairBanner
-                    deviceSection
-                    qualitySection
-                    actions
-                    statusBar
+                if isLandscape {
+                    HStack(alignment: .top, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            header
+                            guideBanner
+                            deviceSection
+                        }
+                        VStack(alignment: .leading, spacing: 12) {
+                            qualitySection
+                            actions
+                            statusBar
+                        }
+                    }
+                    .frame(maxWidth: 940)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                } else {
+                    VStack(alignment: .leading, spacing: 14) {
+                        header
+                        guideBanner
+                        deviceSection
+                        qualitySection
+                        actions
+                        statusBar
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 18)
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 18)
             }
         }
         .onAppear(perform: hydrate)
-        .sheet(isPresented: $showPairing) {
-            PairingSheet(vm: vm, host: ip)
+        .sheet(isPresented: $showGuide) {
+            SetupGuideSheet()
         }
     }
 
@@ -161,30 +180,35 @@ public struct ScrcpyConnectView: View {
             Text("无线投屏")
                 .font(.system(size: 24, weight: .semibold))
                 .foregroundColor(Palette.text)
-            Text("scrcpy over tailscale · 配一次，之后连端口即可")
+            Text("scrcpy over tailscale · 先开 5555，再连接")
                 .font(.system(size: 10))
                 .foregroundColor(Palette.dim)
         }
     }
 
-    // MARK: 首次使用
+    // MARK: 使用说明入口
 
-    private var pairBanner: some View {
+    private var guideBanner: some View {
         HStack(spacing: 9) {
-            Image(systemName: hasPaired ? "checkmark.circle.fill" : "info.circle.fill")
-                .font(.system(size: 12))
+            Image(systemName: "questionmark.circle.fill")
+                .font(.system(size: 13))
                 .foregroundColor(Palette.accent)
-            Text(hasPaired ? "已配对，可直接连接" : "如果是初次使用，请点击配对")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(Palette.text)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("初次使用？需要先在平板上开启 5555")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Palette.text)
+                Text("iOS 端不支持 adb 配对，只能用 5555 明文调试端口")
+                    .font(.system(size: 9))
+                    .foregroundColor(Palette.dim)
+            }
             Spacer(minLength: 4)
             Button {
-                showPairing = true
+                showGuide = true
             } label: {
-                Text("配对")
-                    .font(.system(size: 12, weight: .semibold))
+                Text("查看方法")
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.white)
-                    .padding(.horizontal, 13)
+                    .padding(.horizontal, 11)
                     .frame(height: 28)
                     .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Palette.accent))
             }
@@ -349,7 +373,7 @@ public struct ScrcpyConnectView: View {
                 .frame(width: 5, height: 5)
             Text(statusText)
                 .font(.system(size: 10))
-                .foregroundColor(errorText == nil ? Palette.dim : Color(red: 0.85, green: 0.35, blue: 0.10))
+                .foregroundColor(errorText == nil ? Palette.dim : Palette.warm)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 4)
@@ -360,7 +384,7 @@ public struct ScrcpyConnectView: View {
     }
 
     private var statusColor: Color {
-        if errorText != nil { return Color(red: 0.90, green: 0.45, blue: 0.13) }
+        if errorText != nil { return Palette.warm }
         if isMirroring { return Color(red: 0.20, green: 0.70, blue: 0.35) }
         if isConnecting { return Palette.accent.opacity(0.6) }
         return Palette.label
@@ -410,28 +434,26 @@ public struct ScrcpyConnectView: View {
     }
 }
 
-// MARK: - 配对二级页（浅色）
+// MARK: - 使用说明页
 
-private struct PairingSheet: View {
-    @ObservedObject var vm: DeviceDiscoveryViewModel
-    let host: String
-
+private struct SetupGuideSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var pairPort: String = ""
-    @State private var pairCode: String = ""
+    @Environment(\.verticalSizeClass) private var vSize
+
+    private var isLandscape: Bool { vSize == .compact }
 
     var body: some View {
         ZStack {
             Palette.bg.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 13) {
+                VStack(alignment: .leading, spacing: 14) {
                     HStack(alignment: .top) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("配对设备")
+                            Text("使用说明")
                                 .font(.system(size: 22, weight: .semibold))
                                 .foregroundColor(Palette.text)
-                            Text("只需在初次使用时做一次")
+                            Text("为什么不能配对 · 怎么开 5555")
                                 .font(.system(size: 10))
                                 .foregroundColor(Palette.dim)
                         }
@@ -449,80 +471,169 @@ private struct PairingSheet: View {
                         .buttonStyle(.plain)
                     }
 
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("平板操作路径")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(Palette.text)
-                        Text("设置 → 开发者选项 → 无线调试 → 使用配对码配对设备\n把弹窗里的「端口」和「6 位配对码」填到下面")
-                            .font(.system(size: 11))
-                            .foregroundColor(Palette.dim)
-                            .lineSpacing(3)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding(11)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(Palette.card))
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        MicroLabel(text: "设备地址")
-                        Text(host.isEmpty ? "（请先在主页填写设备地址）" : host)
-                            .font(.system(size: 15, design: .monospaced))
-                            .foregroundColor(host.isEmpty ? Palette.label : Palette.text)
-                            .padding(.horizontal, 14)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .frame(height: 44)
-                            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.cardAlt))
-                            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Palette.stroke, lineWidth: 1))
-                    }
-
-                    HStack(spacing: 8) {
-                        FieldBox(label: "配对端口", placeholder: "40303", text: $pairPort)
-                        FieldBox(label: "配对码", placeholder: "730124", text: $pairCode)
-                    }
-
-                    Button {
-                        vm.pairDevice(hostInput: host, portInput: pairPort, codeInput: pairCode)
-                    } label: {
-                        HStack(spacing: 6) {
-                            if vm.isPairing {
-                                ProgressView()
-                                    .progressViewStyle(.circular)
-                                    .scaleEffect(0.6)
-                                    .tint(.white)
+                    if isLandscape {
+                        HStack(alignment: .top, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 14) {
+                                whyCard
+                                rootCard
                             }
-                            Text(vm.isPairing ? "配对中" : "开始配对")
+                            VStack(alignment: .leading, spacing: 14) {
+                                noRootCard
+                                restartCard
+                                addressCard
+                            }
+                        }
+                    } else {
+                        VStack(alignment: .leading, spacing: 14) {
+                            whyCard
+                            rootCard
+                            noRootCard
+                            restartCard
+                            addressCard
                         }
                     }
-                    .buttonStyle(SoftButtonStyle(filled: true))
-                    .disabled(vm.isPairing || host.isEmpty || pairPort.isEmpty || pairCode.isEmpty)
-
-                    if let msg = vm.pairStatusMessage {
-                        Text(msg)
-                            .font(.system(size: 11))
-                            .foregroundColor(vm.pairSuccess ? Palette.accent : Color(red: 0.85, green: 0.35, blue: 0.10))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    if vm.pairSuccess {
-                        Button {
-                            UserDefaults.standard.set(true, forKey: "scrcpy_has_paired")
-                            dismiss()
-                        } label: {
-                            Text("完成，返回")
-                        }
-                        .buttonStyle(SoftButtonStyle(filled: false))
-                    }
-
-                    Text("配对成功后关掉本页，回主页点「连接」即可；之后端口保持 5555，一般不用再改。")
-                        .font(.system(size: 10))
-                        .foregroundColor(Palette.label)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
+                .frame(maxWidth: isLandscape ? 960 : .infinity)
+                .frame(maxWidth: .infinity)
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
-                .padding(.bottom, 22)
+                .padding(.bottom, 24)
             }
         }
+    }
+
+    private var whyCard: some View {
+        card(title: "为什么不支持「初次无线配对」", tint: Palette.warm) {
+            Text("Android 11 起的「无线调试配对」并不是普通 adb 连接，它用的是独立的 pairing 协议：SPAKE2 密钥交换 + TLS-PSK 加密握手，配对成功才下发证书。\n\n本 App 的 iOS 端只实现了经典 adb 协议（AUTH 用 RSA 公钥签名），没有实现 pairing 握手，所以在手机上无法完成初次配对。\n\n因此必须先在平板侧把 adbd 开成 5555 的明文 TCP 端口，iOS 才能连上去。")
+                .font(.system(size: 11))
+                .foregroundColor(Palette.dim)
+                .lineSpacing(3)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var rootCard: some View {
+        card(title: "方案 A · 设备已 root（推荐）", tint: Palette.accent) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("在平板上打开带终端的文件管理器（如 MT 管理器 → 终端模拟器），依次执行：")
+                    .font(.system(size: 11))
+                    .foregroundColor(Palette.dim)
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
+                codeBlock("""
+                su
+                setprop service.adb.tcp.port 5555
+                stop adbd
+                start adbd
+                """)
+                Text("或者一条命令搞定：")
+                    .font(.system(size: 11))
+                    .foregroundColor(Palette.dim)
+                codeBlock("""
+                su -c "setprop service.adb.tcp.port 5555"
+                su -c "stop adbd; start adbd"
+                """)
+                Text("执行后 adbd 会以 5555 端口监听，回到本页填地址点「连接」即可。")
+                    .font(.system(size: 11))
+                    .foregroundColor(Palette.dim)
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var noRootCard: some View {
+        card(title: "方案 B · 设备未 root（借电脑开）", tint: Palette.accent) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("B1. USB 连电脑，在电脑上执行（最简单）")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(Palette.text)
+                codeBlock("""
+                adb devices
+                adb tcpip 5555
+                adb connect 平板IP:5555
+                """)
+
+                Text("B2. 用 scrcpy 一步到位")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(Palette.text)
+                codeBlock("""
+                scrcpy --tcpip=平板IP:5555
+                """)
+
+                Text("B3. 电脑做无线配对（Android 11+，不用插线）")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(Palette.text)
+                Text("平板：设置 → 开发者选项 → 无线调试 → 使用配对码配对设备，记下「IP:配对端口」与 6 位配对码。")
+                    .font(.system(size: 11))
+                    .foregroundColor(Palette.dim)
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
+                codeBlock("""
+                adb pair 平板IP:配对端口
+                # 按提示输入 6 位配对码
+                adb connect 平板IP:连接端口
+                adb tcpip 5555
+                """)
+
+                Text("三条路最后都要落到 adb tcpip 5555 —— 这才是把端口固定成 5555 的关键。")
+                    .font(.system(size: 11))
+                    .foregroundColor(Palette.dim)
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var restartCard: some View {
+        card(title: "重要 · 设备重启后会失效", tint: Palette.warm) {
+            Text("adb tcpip 5555 和 setprop 都只存在于内存里。被控设备一旦重启，5555 端口就没了，App 会报「连接被拒绝」。\n\n重启后需要重新执行一次上面的命令。root 设备可以写进开机脚本或 Magisk 模块自动化。")
+                .font(.system(size: 11))
+                .foregroundColor(Palette.dim)
+                .lineSpacing(3)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var addressCard: some View {
+        card(title: "关于「平板IP」", tint: Palette.accent) {
+            Text("走 Tailscale 就填 100.x.y.z 的 tailnet 地址（主页会自动带出上次用过的）。\n局域网直连则填平板在 Wi-Fi 里的 192.168.x.x。")
+                .font(.system(size: 11))
+                .foregroundColor(Palette.dim)
+                .lineSpacing(3)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    @ViewBuilder
+    private func card<C: View>(title: String, tint: Color, @ViewBuilder content: () -> C) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Rectangle()
+                    .fill(tint)
+                    .frame(width: 3, height: 12)
+                    .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Palette.text)
+            }
+            content()
+        }
+        .padding(11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Palette.card))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Palette.stroke, lineWidth: 1))
+    }
+
+    private func codeBlock(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 11, design: .monospaced))
+            .foregroundColor(Palette.text)
+            .lineSpacing(2)
+            .padding(9)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Palette.codeBg))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Palette.stroke, lineWidth: 1))
+            .textSelection(.enabled)
     }
 }

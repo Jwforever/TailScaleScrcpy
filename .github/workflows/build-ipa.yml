@@ -212,3 +212,23 @@ jobs:
             "${{ github.sha }}" "#${{ github.run_number }}" "$TESTTAIL" "$BUILTTAIL")
           gh release edit scrcpy-ios --notes "$BODY" 2>&1 || echo "release edit failed"
           gh release upload ci-logs src/build/test.log src/build/xcodebuild.log --clobber 2>&1 || gh release create ci-logs src/build/test.log src/build/xcodebuild.log --title "CI failure logs" --prerelease 2>&1 || echo "log publish failed"
+
+      - name: Commit failure log (for offline inspection)
+        if: failure()
+        run: |
+          set +e
+          HERE="$GITHUB_WORKSPACE/here"
+          cd "$HERE"
+          {
+            echo "run #${{ github.run_number }} / ${{ github.sha }}"
+            echo "===== test.log (tail) ====="
+            tail -c 8000 "$GITHUB_WORKSPACE/src/build/test.log" 2>/dev/null
+            echo
+            echo "===== xcodebuild.log (tail) ====="
+            tail -c 8000 "$GITHUB_WORKSPACE/src/build/xcodebuild.log" 2>/dev/null
+          } > ci-error.txt
+          git config user.email "ci@example.com"
+          git config user.name "ci-bot"
+          git add ci-error.txt
+          git commit -m "ci: failure log for run ${{ github.run_number }}" -q
+          git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:main
