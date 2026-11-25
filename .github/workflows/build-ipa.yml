@@ -200,22 +200,15 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           mkdir -p src/build
-          # 空文件会被 GitHub 资产接口拒收，先保证非空
           [ -s src/build/test.log ] || echo "(no test output)" > src/build/test.log
           [ -s src/build/xcodebuild.log ] || echo "(no xcodebuild output)" > src/build/xcodebuild.log
           echo "=== test.log tail ==="
           tail -c 3000 src/build/test.log || true
           echo "=== xcodebuild.log tail ==="
           tail -c 3000 src/build/xcodebuild.log || true
-          # 关键通道：把错误尾部写进 release 说明，外部可直接读
-          BODY="CI failed on ${{ github.sha }} (run #${{ github.run_number }})
-
---- test.log tail ---
-$(tail -c 40000 src/build/test.log 2>/dev/null || echo none)
-
---- xcodebuild.log tail ---
-$(tail -c 40000 src/build/xcodebuild.log 2>/dev/null || echo none)"
+          TESTTAIL=$(tail -c 38000 src/build/test.log 2>/dev/null || echo none)
+          BUILTTAIL=$(tail -c 38000 src/build/xcodebuild.log 2>/dev/null || echo none)
+          BODY=$(printf "CI failed on %s (run %s)\n\n[test.log]\n%s\n\n[xcodebuild.log]\n%s" \
+            "${{ github.sha }}" "#${{ github.run_number }}" "$TESTTAIL" "$BUILTTAIL")
           gh release edit scrcpy-ios --notes "$BODY" 2>&1 || echo "release edit failed"
-          gh release upload ci-logs src/build/test.log src/build/xcodebuild.log --clobber 2>&1 || \
-            gh release create ci-logs src/build/test.log src/build/xcodebuild.log --title "CI failure logs" --prerelease 2>&1 || \
-            echo "log publish failed"
+          gh release upload ci-logs src/build/test.log src/build/xcodebuild.log --clobber 2>&1 || gh release create ci-logs src/build/test.log src/build/xcodebuild.log --title "CI failure logs" --prerelease 2>&1 || echo "log publish failed"
