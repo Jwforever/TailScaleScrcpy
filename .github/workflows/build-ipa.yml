@@ -39,7 +39,7 @@ jobs:
       # 3) 用定制 UI 覆盖上游文件
       - name: Apply overlay (recursive merge)
         run: |
-          set -e
+          set -euo pipefail
           OVL="$GITHUB_WORKSPACE/here/ios/overlay"
           DST="$GITHUB_WORKSPACE/src"
           echo "=== overlay 文件 ==="
@@ -52,14 +52,18 @@ jobs:
             cp -f "$f" "$target"
             echo "  -> ${f#./}"
           done
-          echo "=== 校验热补丁是否落地 ==="
-          grep -q "TouchMeta" "$DST/Sources/ScrcpyKit/Session/GestureController.swift" && echo "  OK: touch fix"
-          grep -q "eye.slash.fill" "$DST/Sources/ScrcpyApp/Views/MirrorSessionView.swift" && echo "  OK: hud toggle"
+          echo "=== 硬校验（缺失即失败）==="
+          grep -q "TouchMeta" "$DST/Sources/ScrcpyKit/Session/GestureController.swift" \
+            || { echo "FAIL: 触摸补丁未落盘"; exit 1; }
+          grep -q "eye.slash.fill" "$DST/Sources/ScrcpyApp/Views/MirrorSessionView.swift" \
+            || { echo "FAIL: HUD 按钮未落盘"; exit 1; }
           if grep -q "\.onTapGesture {" "$DST/Sources/ScrcpyApp/Views/MirrorSessionView.swift"; then
-            echo "  FAIL: 整屏 onTapGesture 仍存在，会吞掉点击"
+            echo "FAIL: 整屏 onTapGesture 仍存在，会吞掉点击"
             exit 1
           fi
-          echo "  OK: no fullscreen tap gesture"
+          grep -q "TeslaConnectView" "$DST/Sources/ScrcpyApp/ScrcpyApp.swift" \
+            || { echo "FAIL: 根视图未切换"; exit 1; }
+          echo "  全部补丁已确认落盘"
 
       - name: Toolchain info
         run: |
@@ -80,11 +84,14 @@ jobs:
       - name: Build (unsigned)
         working-directory: src
         run: |
+          set -euo pipefail
+          rm -rf build
           xcodebuild -project ScrcpyiOS.xcodeproj \
             -scheme ScrcpyApp \
             -configuration Release \
             -destination "generic/platform=iOS" \
             -archivePath build/Scrcpy.xcarchive \
+            -derivedDataPath build/dd \
             archive \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO
@@ -92,8 +99,24 @@ jobs:
       - name: Package IPA
         working-directory: src
         run: |
+          set -euo pipefail
           mkdir -p build/Payload
           cp -r build/Scrcpy.xcarchive/Products/Applications/ScrcpyApp.app build/Payload/
+          APP="build/Payload/ScrcpyApp.app"
+          {
+            echo "commit=${{ github.sha }}"
+            echo "run=#${{ github.run_number }}"
+            echo "built=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "--- source sha256 ---"
+            shasum -a 256 Sources/ScrcpyApp/Views/MirrorSessionView.swift \
+                          Sources/ScrcpyApp/Views/TeslaConnectView.swift \
+                          Sources/ScrcpyApp/ScrcpyApp.swift \
+                          Sources/ScrcpyKit/Session/GestureController.swift
+            echo "--- markers ---"
+            grep -c "TouchMeta" Sources/ScrcpyKit/Session/GestureController.swift || true
+            grep -c "eye.slash.fill" Sources/ScrcpyApp/Views/MirrorSessionView.swift || true
+          } > "$APP/BUILDINFO.txt"
+          cat "$APP/BUILDINFO.txt"
           cd build && zip -qry Scrcpy-tesla.ipa Payload
           ls -lh Scrcpy-tesla.ipa
 
@@ -110,7 +133,13 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           TAG="ios-tesla"
-          NOTES="Tesla 风格定制 UI 版（未签名）。需用 Sideloadly / AltStore 配自己的 Apple ID 自签，免费证书 7 天到期。使用：Host 填设备 Tailscale IP，Port 填 5555，平板侧先开启无线调试并 adb tcpip 5555。"
+          SHA="${GITHUB_SHA:0:7}"
+          NOTES="Tesla 风格定制 UI 版（未签名）· build #${{ github.run_number }} · commit $SHA
+
+包含修复：投屏画面单击失效（整屏 onTapGesture 吞掉触摸，改为补发 up + 独立显隐按钮）。
+
+安装：Sideloadly / AltStore 配自己的 Apple ID 自签，免费证书 7 天到期。
+连接：Host 填设备 Tailscale IP，Port 填 5555，平板侧先开无线调试并 adb tcpip 5555。"
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG exists, uploading with clobber"
             gh release upload "$TAG" src/build/Scrcpy-tesla.ipa --clobber
