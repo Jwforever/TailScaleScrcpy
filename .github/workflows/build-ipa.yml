@@ -37,18 +37,29 @@ jobs:
           path: src
 
       # 3) 用定制 UI 覆盖上游文件
-      - name: Apply UI overlay
+      - name: Apply overlay (recursive merge)
         run: |
           set -e
-          echo "=== overlay 内容 ==="
-          find here/ios/overlay -type f
-          cp -f here/ios/overlay/Sources/ScrcpyApp/ScrcpyApp.swift \
-                src/Sources/ScrcpyApp/ScrcpyApp.swift
-          cp -f here/ios/overlay/Sources/ScrcpyApp/Views/TeslaConnectView.swift \
-                src/Sources/ScrcpyApp/Views/TeslaConnectView.swift
-          echo "=== 覆盖后校验 ==="
-          grep -c "TeslaConnectView" src/Sources/ScrcpyApp/ScrcpyApp.swift
-          wc -l src/Sources/ScrcpyApp/Views/TeslaConnectView.swift
+          OVL="$GITHUB_WORKSPACE/here/ios/overlay"
+          DST="$GITHUB_WORKSPACE/src"
+          echo "=== overlay 文件 ==="
+          (cd "$OVL" && find . -type f | sort)
+          echo "=== 覆盖到 src ==="
+          cd "$OVL"
+          find . -type f | while read -r f; do
+            target="$DST/${f#./}"
+            mkdir -p "$(dirname "$target")"
+            cp -f "$f" "$target"
+            echo "  -> ${f#./}"
+          done
+          echo "=== 校验热补丁是否落地 ==="
+          grep -q "TouchMeta" "$DST/Sources/ScrcpyKit/Session/GestureController.swift" && echo "  OK: touch fix"
+          grep -q "eye.slash.fill" "$DST/Sources/ScrcpyApp/Views/MirrorSessionView.swift" && echo "  OK: hud toggle"
+          if grep -q "\.onTapGesture {" "$DST/Sources/ScrcpyApp/Views/MirrorSessionView.swift"; then
+            echo "  FAIL: 整屏 onTapGesture 仍存在，会吞掉点击"
+            exit 1
+          fi
+          echo "  OK: no fullscreen tap gesture"
 
       - name: Toolchain info
         run: |
