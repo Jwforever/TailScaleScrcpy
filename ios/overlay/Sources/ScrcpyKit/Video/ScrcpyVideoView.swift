@@ -32,8 +32,10 @@ public final class UIVideoSampleBufferView: UIView {
     public func enqueue(_ sampleBuffer: CMSampleBuffer) {
         // 系统在 App 挂起/被中断后会把渲染层置为「需要 flush 才能继续解码」，
         // 此时 enqueue 的帧会被静默丢弃 —— 表现为切回前台黑屏且一直不恢复。
-        if sampleBufferDisplayLayer.requiresFlushToResumeDecoding {
-            sampleBufferDisplayLayer.flush()
+        if #available(iOS 14.0, tvOS 14.0, macOS 11.0, *) {
+            if sampleBufferDisplayLayer.requiresFlushToResumeDecoding {
+                sampleBufferDisplayLayer.flush()
+            }
         }
         if sampleBufferDisplayLayer.status == .failed {
             sampleBufferDisplayLayer.flush()

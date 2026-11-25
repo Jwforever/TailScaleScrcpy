@@ -239,4 +239,7 @@ jobs:
           git config user.name "ci-bot"
           git add ci-error.txt
           git commit -m "ci: failure log for run ${{ github.run_number }}" -q
-          git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:main
+          REMOTE="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git pull --rebase "$REMOTE" main || true
+          git push "$REMOTE" HEAD:main || echo "log push failed"
+          echo "done
