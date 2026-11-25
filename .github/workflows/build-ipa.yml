@@ -99,18 +99,29 @@ jobs:
       - name: Verify built binary carries the fix
         working-directory: src
         run: |
-          set -euo pipefail
-          KIT="build/Scrcpy.xcarchive/Products/Applications/ScrcpyApp.app/Frameworks/ScrcpyKit.framework/ScrcpyKit"
-          APP="build/Scrcpy.xcarchive/Products/Applications/ScrcpyApp.app/ScrcpyApp"
-          echo "kit: $(ls -l "$KIT" | awk '{print $5}') bytes"
-          echo "app: $(ls -l "$APP" | awk '{print $5}') bytes"
-          for m in TouchMeta onSingleTap cancelsTouchesInView; do
-            if ! grep -aq "$m" "$KIT"; then
-              echo "FAIL: 产出的 ScrcpyKit 中缺少标记 $m —— 补丁未编入"
-              exit 1
-            fi
-            echo "  OK: $m"
-          done
+          APP_DIR="build/Scrcpy.xcarchive/Products/Applications/ScrcpyApp.app"
+          KIT="$APP_DIR/Frameworks/ScrcpyKit.framework/ScrcpyKit"
+          APP="$APP_DIR/ScrcpyApp"
+          REPORT="build/verify.txt"
+          {
+            echo "=== paths ==="
+            ls -l "$KIT" "$APP" 2>&1 || true
+            echo "=== markers in ScrcpyKit ==="
+            for m in TouchMeta onSingleTap cancelsTouchesInView didMoveToWindow; do
+              if grep -aq "$m" "$KIT" 2>/dev/null; then echo "  $m = yes"; else echo "  $m = no"; fi
+            done
+            echo "=== markers in ScrcpyApp ==="
+            for m in eye.slash.fill eye.fill film.stack xmark.circle.fill MirrorSessionView showControls; do
+              if grep -aq "$m" "$APP" 2>/dev/null; then echo "  $m = yes"; else echo "  $m = no"; fi
+            done
+            echo "=== verdict ==="
+            ok=1
+            for m in TouchMeta onSingleTap cancelsTouchesInView; do
+              if ! grep -aq "$m" "$KIT" 2>/dev/null; then ok=0; echo "  MISSING in kit: $m"; fi
+            done
+            if [ "$ok" = "1" ]; then echo "  PASS"; else echo "  FAIL"; fi
+          } > "$REPORT" 2>&1
+          cat "$REPORT"
 
       - name: Package IPA
         working-directory: src
@@ -132,7 +143,10 @@ jobs:
             grep -c "TouchMeta" Sources/ScrcpyKit/Session/GestureController.swift || true
             grep -c "eye.slash.fill" Sources/ScrcpyApp/Views/MirrorSessionView.swift || true
           } > "$APP/BUILDINFO.txt"
+          cp -f build/verify.txt "$APP/VERIFY.txt" 2>/dev/null || echo "no verify report" > "$APP/VERIFY.txt"
           cat "$APP/BUILDINFO.txt"
+          echo "-----"
+          cat "$APP/VERIFY.txt"
           cd build && zip -qry Scrcpy-tesla.ipa Payload
           ls -lh Scrcpy-tesla.ipa
 
@@ -168,3 +182,6 @@ jobs:
               --notes "$NOTES" \
               --prerelease
           fi
+          echo "=== diagnostic verdict ==="
+          cat src/build/verify.txt
+          grep -q "PASS" src/build/verify.txt || { echo "VERDICT: fix not compiled in"; exit 1; }
