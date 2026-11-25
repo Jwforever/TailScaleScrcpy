@@ -76,9 +76,7 @@ public final class ScrcpyClient: ObservableObject {
     private var controlStream: AdbStream?
     private let controlQueue = ControlQueue()
 
-    // 前台恢复用的状态
-    private let fgLock = NSLock()
-    private var droppingVideo = false
+    // 前台恢复用的状态见 FrameGate.shared
 
     private var videoTask: Task<Void, Never>?
     private var audioTask: Task<Void, Never>?
@@ -373,12 +371,10 @@ public final class ScrcpyClient: ObservableObject {
 
                         // App 从后台回来时，adb 单连接上积压了大量陈旧视频数据，
                         // 会堵住控制消息的 ACK。这里先丢掉非关键帧，把积压快速排空。
-                        client.fgLock.lock()
-                        let skipStale = client.droppingVideo
+                        let skipStale = FrameGate.shared.isDropping
                         if skipStale && header.isKeyFrame {
-                            client.droppingVideo = false
+                            FrameGate.shared.endDrop()
                         }
-                        client.fgLock.unlock()
                         if skipStale && !header.isKeyFrame {
                             continue
                         }
@@ -553,24 +549,16 @@ public final class ScrcpyClient: ObservableObject {
 
     /// App 回到前台时调用：排空积压、恢复控制；2.5 秒仍未恢复则重连
     public func handleForeground() {
-        if case .mirroring = state {
-            // 继续
-        } else {
-            return
-        }
+        guard case .mirroring = state else { return }
 
         controlQueue.clear()
+        FrameGate.shared.beginDrop()
 
-        fgLock.lock()
-        droppingVideo = true
-        fgLock.unlock()
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
+        // Task 继承本方法的 MainActor 隔离域，睡眠结束后仍在主线程上
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
             guard let self = self else { return }
-            self.fgLock.lock()
-            let stillDropping = self.droppingVideo
-            self.fgLock.unlock()
-            if !stillDropping { return }
+            if !FrameGate.shared.isDropping { return }
 
             var mirroring = false
             if case .mirroring = self.state { mirroring = true }
@@ -739,5 +727,37 @@ final class ControlQueue: @unchecked Sendable {
         while let (data, s) = next() {
             try? await s.write(data)
         }
+    }
+}
+
+// MARK: - 帧闸门
+//
+// ScrcpyClient 本身是 @MainActor 隔离的，视频解析任务并非隔离上下文，
+// 因此「是否丢弃陈旧帧」这个开关必须放在独立的线程安全对象里，
+// 用不可变 let 属性持有，才能被异步任务安全读取。
+
+final class FrameGate: @unchecked Sendable {
+    /// 静态实例：不属于任何 @MainActor 类型，可在任意隔离域访问
+    static let shared = FrameGate()
+
+    private let lock = NSLock()
+    private var dropping = false
+
+    var isDropping: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return dropping
+    }
+
+    func beginDrop() {
+        lock.lock()
+        dropping = true
+        lock.unlock()
+    }
+
+    func endDrop() {
+        lock.lock()
+        dropping = false
+        lock.unlock()
     }
 }
