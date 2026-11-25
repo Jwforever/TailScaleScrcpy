@@ -96,6 +96,22 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO
 
+      - name: Verify built binary carries the fix
+        working-directory: src
+        run: |
+          set -euo pipefail
+          KIT="build/Scrcpy.xcarchive/Products/Applications/ScrcpyApp.app/Frameworks/ScrcpyKit.framework/ScrcpyKit"
+          APP="build/Scrcpy.xcarchive/Products/Applications/ScrcpyApp.app/ScrcpyApp"
+          echo "kit: $(ls -l "$KIT" | awk '{print $5}') bytes"
+          echo "app: $(ls -l "$APP" | awk '{print $5}') bytes"
+          for m in TouchMeta onSingleTap cancelsTouchesInView; do
+            if ! grep -aq "$m" "$KIT"; then
+              echo "FAIL: 产出的 ScrcpyKit 中缺少标记 $m —— 补丁未编入"
+              exit 1
+            fi
+            echo "  OK: $m"
+          done
+
       - name: Package IPA
         working-directory: src
         run: |

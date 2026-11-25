@@ -22,6 +22,19 @@ public final class TouchOverlayView: UIView {
 
     private var now: TimeInterval { Date().timeIntervalSinceReferenceDate }
 
+    /// 挂到窗口后，关闭所有上层手势（SwiftUI 的 onTapGesture 等）的 cancelsTouchesInView。
+    /// 默认 true 时，一次单击会被上层手势认领并取消子视图触摸，安卓端只能收到
+    /// down+cancel，表现为「能滑动、点不动」。这里从根上关掉取消行为。
+    public override func didMoveToWindow() {
+        super.didMoveToWindow()
+        guard window != nil else { return }
+        var node: UIView? = superview
+        while let cur = node {
+            cur.gestureRecognizers?.forEach { $0.cancelsTouchesInView = false }
+            node = cur.superview
+        }
+    }
+
     public override init(frame: CGRect) {
         super.init(frame: frame)
         isMultipleTouchEnabled = true
