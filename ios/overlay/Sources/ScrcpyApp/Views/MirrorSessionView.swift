@@ -98,6 +98,31 @@ public struct MirrorSessionView: View {
                     }
                 }
 
+                // 画面无数据提示：系统挂断连接或渲染层失效时给一个一键重连入口，
+                // 不自动重连，避免把用户已建立的会话直接掐掉
+                if client.state == .mirroring && client.currentFps < 0.1 {
+                    VStack {
+                        Button {
+                            client.stop()
+                            client.start()
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 11, weight: .semibold))
+                                Text("画面无数据 · 点此重连")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .frame(height: 30)
+                            .background(Capsule(style: .continuous).fill(Color.black.opacity(0.55)))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 8)
+                        Spacer()
+                    }
+                }
+
                 // HUD 显隐开关：常驻左中边缘，避免占用设备的点击区域
                 // （原先用整屏 onTapGesture 切换工具栏，会把单击当成手势取消，导致设备端点不动）
                 VStack {
