@@ -132,14 +132,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
+          set -euo pipefail
           TAG="ios-tesla"
           SHA="${GITHUB_SHA:0:7}"
-          NOTES="Tesla 风格定制 UI 版（未签名）· build #${{ github.run_number }} · commit $SHA
-
-包含修复：投屏画面单击失效（整屏 onTapGesture 吞掉触摸，改为补发 up + 独立显隐按钮）。
-
-安装：Sideloadly / AltStore 配自己的 Apple ID 自签，免费证书 7 天到期。
-连接：Host 填设备 Tailscale IP，Port 填 5555，平板侧先开无线调试并 adb tcpip 5555。"
+          NOTES=$(printf '%s\n' \
+            "Tesla UI 定制版（未签名） · build #${{ github.run_number }} · commit $SHA" \
+            "" \
+            "修复：投屏画面单击失效（整屏 onTapGesture 会吞掉触摸，已改为补发 up + 独立显隐按钮）。" \
+            "" \
+            "安装：Sideloadly / AltStore 配自己的 Apple ID 自签，免费证书 7 天到期。" \
+            "连接：Host 填设备 Tailscale IP，Port 填 5555，平板侧先开无线调试并 adb tcpip 5555。")
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG exists, uploading with clobber"
             gh release upload "$TAG" src/build/Scrcpy-tesla.ipa --clobber
