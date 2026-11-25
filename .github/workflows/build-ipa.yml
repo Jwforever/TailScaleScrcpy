@@ -170,6 +170,8 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          mkdir -p src/build
+          exec > >(tee -a src/build/publish.log) 2>&1
           TAG="scrcpy-ios"
           SHA="${GITHUB_SHA:0:7}"
           NOTES=$(printf '%s\n' \
@@ -225,7 +227,10 @@ jobs:
             tail -c 8000 "$GITHUB_WORKSPACE/src/build/test.log" 2>/dev/null
             echo
             echo "===== xcodebuild.log (tail) ====="
-            tail -c 8000 "$GITHUB_WORKSPACE/src/build/xcodebuild.log" 2>/dev/null
+            tail -c 4000 "$GITHUB_WORKSPACE/src/build/xcodebuild.log" 2>/dev/null
+            echo
+            echo "===== publish.log ====="
+            tail -c 4000 "$GITHUB_WORKSPACE/src/build/publish.log" 2>/dev/null
           } > ci-error.txt
           git config user.email "ci@example.com"
           git config user.name "ci-bot"
