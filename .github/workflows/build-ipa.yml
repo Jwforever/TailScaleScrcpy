@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   build-ipa:
-    name: Build unsigned IPA (Tesla UI)
+    name: Build unsigned IPA (scrcpy-ios)
     runs-on: macos-15
     timeout-minutes: 45
 
@@ -61,8 +61,10 @@ jobs:
             echo "FAIL: 整屏 onTapGesture 仍存在，会吞掉点击"
             exit 1
           fi
-          grep -q "TeslaConnectView" "$DST/Sources/ScrcpyApp/ScrcpyApp.swift" \
+          grep -q "ScrcpyConnectView" "$DST/Sources/ScrcpyApp/ScrcpyApp.swift" \
             || { echo "FAIL: 根视图未切换"; exit 1; }
+          grep -q "ControlQueue" "$DST/Sources/ScrcpyKit/Session/ScrcpyClient.swift" \
+            || { echo "FAIL: 控制队列补丁未落盘"; exit 1; }
           echo "  全部补丁已确认落盘"
 
       - name: Toolchain info
@@ -135,10 +137,11 @@ jobs:
             echo "run=#${{ github.run_number }}"
             echo "built=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
             echo "--- source sha256 ---"
-            shasum -a 256 Sources/ScrcpyApp/Views/MirrorSessionView.swift \
-                          Sources/ScrcpyApp/Views/TeslaConnectView.swift \
+            shasum -a 256 Sources/ScrcpyApp/Views/ScrcpyConnectView.swift \
+                          Sources/ScrcpyApp/Views/MirrorSessionView.swift \
                           Sources/ScrcpyApp/ScrcpyApp.swift \
-                          Sources/ScrcpyKit/Session/GestureController.swift
+                          Sources/ScrcpyKit/Session/GestureController.swift \
+                          Sources/ScrcpyKit/Session/ScrcpyClient.swift
             echo "--- markers ---"
             grep -c "TouchMeta" Sources/ScrcpyKit/Session/GestureController.swift || true
             grep -c "eye.slash.fill" Sources/ScrcpyApp/Views/MirrorSessionView.swift || true
@@ -147,14 +150,14 @@ jobs:
           cat "$APP/BUILDINFO.txt"
           echo "-----"
           cat "$APP/VERIFY.txt"
-          cd build && zip -qry Scrcpy-tesla.ipa Payload
-          ls -lh Scrcpy-tesla.ipa
+          cd build && zip -qry Scrcpy-ios.ipa Payload
+          ls -lh Scrcpy-ios.ipa
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Scrcpy-tesla-ipa
-          path: src/build/Scrcpy-tesla.ipa
+          name: Scrcpy-ios-ipa
+          path: src/build/Scrcpy-ios.ipa
           retention-days: 30
 
       - name: Publish to Releases
@@ -163,10 +166,10 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          TAG="ios-tesla"
+          TAG="scrcpy-ios"
           SHA="${GITHUB_SHA:0:7}"
           NOTES=$(printf '%s\n' \
-            "Tesla UI 定制版（未签名） · build #${{ github.run_number }} · commit $SHA" \
+            "scrcpy-ios 定制 UI 版（未签名） · build #${{ github.run_number }} · commit $SHA" \
             "" \
             "修复：投屏画面单击失效（整屏 onTapGesture 会吞掉触摸，已改为补发 up + 独立显隐按钮）。" \
             "" \
@@ -174,11 +177,11 @@ jobs:
             "连接：Host 填设备 Tailscale IP，Port 填 5555，平板侧先开无线调试并 adb tcpip 5555。")
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG exists, uploading with clobber"
-            gh release upload "$TAG" src/build/Scrcpy-tesla.ipa --clobber
+            gh release upload "$TAG" src/build/Scrcpy-ios.ipa --clobber
           else
             echo "Creating release $TAG"
-            gh release create "$TAG" src/build/Scrcpy-tesla.ipa \
-              --title "iOS 定制 UI 版 (Tesla 风格)" \
+            gh release create "$TAG" src/build/Scrcpy-ios.ipa \
+              --title "scrcpy-ios · 定制 UI" \
               --notes "$NOTES" \
               --prerelease
           fi

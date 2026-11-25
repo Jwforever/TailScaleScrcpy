@@ -25,7 +25,7 @@ public struct RootContentView: View {
 
     public var body: some View {
         ZStack {
-            TeslaConnectView(client: client)
+            ScrcpyConnectView(client: client)
                 .opacity(client.state == .mirroring ? 0 : 1)
                 .allowsHitTesting(client.state != .mirroring)
 
