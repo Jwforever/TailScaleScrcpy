@@ -226,8 +226,11 @@ jobs:
             echo "===== test.log (tail) ====="
             tail -c 8000 "$GITHUB_WORKSPACE/src/build/test.log" 2>/dev/null
             echo
+            echo "===== xcodebuild errors ====="
+            grep -a -n "error:" "$GITHUB_WORKSPACE/src/build/xcodebuild.log" 2>/dev/null | tail -30
+            echo
             echo "===== xcodebuild.log (tail) ====="
-            tail -c 4000 "$GITHUB_WORKSPACE/src/build/xcodebuild.log" 2>/dev/null
+            tail -c 1500 "$GITHUB_WORKSPACE/src/build/xcodebuild.log" 2>/dev/null
             echo
             echo "===== publish.log ====="
             tail -c 4000 "$GITHUB_WORKSPACE/src/build/publish.log" 2>/dev/null
